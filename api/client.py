@@ -20,7 +20,7 @@ class WBApiClient:
             self._headers = {'Authorization': kwargs['token']}
 
     @retry_on_network_error
-    def get_orders(self, supply_id: str) -> list[Order]:
+    def get_supply_orders(self, supply_id: str) -> list[Order]:
         response = requests.get(
             f'https://suppliers-api.wildberries.ru/api/v3/supplies/{supply_id}/orders',
             headers=self._headers
@@ -156,13 +156,13 @@ class WBApiClient:
         return SupplySticker.parse_obj(response.json())
 
     @retry_on_network_error
-    def get_new_orders(self) -> Generator:
+    def get_new_orders(self) -> list[Order]:
         response = requests.get(
             f'https://suppliers-api.wildberries.ru/api/v3/orders/new',
             headers=self._headers
         )
         check_response(response)
-        return (Order.parse_obj(order) for order in response.json()['orders'])
+        return [Order.parse_obj(order) for order in response.json()['orders']]
 
     @retry_on_network_error
     def add_order_to_supply(self, supply_id: str, order_id: int | str) -> int:

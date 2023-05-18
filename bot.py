@@ -2,13 +2,14 @@ import logging
 from collections import Counter
 
 from environs import Env
-from telegram import Update, ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import (
     Updater,
     CallbackQueryHandler,
     MessageHandler,
     CommandHandler,
-    Filters, CallbackContext
+    Filters,
+    CallbackContext
 )
 
 from logger import TGLoggerHandler
@@ -20,12 +21,7 @@ tg_logger = logging.getLogger('TG_logger')
 
 
 def show_start_menu(update: Update, context: CallbackContext):
-    env = Env()
-    env.read_env()
-    db = RedisClient()
     user_id = update.effective_chat.id
-    if not user_id == env.int('OWNER_ID'):
-        return
     keyboard = [
         [InlineKeyboardButton('Показать поставки', callback_data='show_supplies')],
         [InlineKeyboardButton('Новые заказы', callback_data='new_orders')]
@@ -44,7 +40,6 @@ def show_start_menu(update: Update, context: CallbackContext):
         text='Основное меню',
         reply_markup=keyboard_markup
     )
-    db.client.set(user_id, 'HANDLE_MAIN_MENU')
     return 'HANDLE_MAIN_MENU'
 
 
@@ -104,7 +99,7 @@ def show_new_orders(update: Update, context: CallbackContext):
 def show_supply(update: Update, context: CallbackContext):
     wb_api_client = WBApiClient()
     _, supply_id = update.callback_query.data.split('_')
-    orders = wb_api_client.get_orders(supply_id)
+    orders = wb_api_client.get_supply_orders(supply_id)
     if orders:
         keyboard = [
             [InlineKeyboardButton('Создать стикеры', callback_data=f'stickers_{supply_id}')],
@@ -122,7 +117,7 @@ def show_supply(update: Update, context: CallbackContext):
             [InlineKeyboardButton('Удалить поставку', callback_data=f'delete_{supply_id}')]
         ]
         text = f'В поставке нет заказов'
-        
+
     context.bot.delete_message(
         chat_id=update.effective_chat.id,
         message_id=update.effective_message.message_id
@@ -132,20 +127,44 @@ def show_supply(update: Update, context: CallbackContext):
         text=text,
         reply_markup=InlineKeyboardMarkup(keyboard)
     )
-
     return 'HANDLE_SUPPLY'
 
 
-def handle_main_menu(update: Update, context: CallbackContext):
-    if update.callback_query:
-        query = update.callback_query.data
+def show_order_details(update: Update, context: CallbackContext):
+    wb_api_client = WBApiClient()
+
+    for order in wb_api_client.get_new_orders():
+        if order.order_id == int(update.callback_query.data):
+            current_order = order
+            break
     else:
-        context.bot.delete_message(
-            chat_id=update.effective_chat.id,
-            message_id=update.effective_message.message_id
-        )
         return
 
+    context.bot.answer_callback_query(
+        update.callback_query.id,
+        f'Информация по заказу {current_order.order_id}'
+    )
+    keyboard = [
+        [InlineKeyboardButton('Перенести в поставку', callback_data=f'move_to_supply_{current_order.order_id}')],
+        [InlineKeyboardButton('Вернуться к списку заказов', callback_data=f'new_orders')],
+        [InlineKeyboardButton('Основное меню', callback_data='start')]
+    ]
+    context.bot.delete_message(
+        chat_id=update.effective_chat.id,
+        message_id=update.effective_message.message_id
+    )
+    context.bot.send_message(
+        chat_id=update.effective_chat.id,
+        text=f'Номер заказа: {current_order.order_id}\n'
+             f'Артикул: {current_order.article}\n'
+             f'Время с момента заказа: {convert_to_created_ago(order.created_at)}',
+        reply_markup=InlineKeyboardMarkup(keyboard)
+    )
+    return 'HANDLE_ORDER'
+
+
+def handle_main_menu(update: Update, context: CallbackContext):
+    query = update.callback_query.data
     if query == 'show_supplies':
         return show_supplies(update, context)
     elif query == 'new_orders':
@@ -153,32 +172,27 @@ def handle_main_menu(update: Update, context: CallbackContext):
 
 
 def handle_supplies_menu(update: Update, context: CallbackContext):
-    if update.callback_query:
-        query = update.callback_query.data
-    else:
-        context.bot.delete_message(
-            chat_id=update.effective_chat.id,
-            message_id=update.effective_message.message_id
-        )
-        return
-
+    query = update.callback_query.data
     if query.startswith('supply_'):
         return show_supply(update, context)
     elif query == 'more_supplies':
         return
-    else:
-        context.bot.delete_message(
-            chat_id=update.effective_chat.id,
-            message_id=update.effective_message.message_id
-        )
-
-
-def handle_new_orders(update: Update, context: CallbackContext):
-    pass
 
 
 def handle_supply(update: Update, context: CallbackContext):
-    pass
+    query = update.callback_query.data
+    if query.startswith('stickers_'):
+        return
+    elif query.startswith('close_'):
+        return
+
+
+def handle_order(update: Update, context: CallbackContext):
+    query = update.callback_query.data
+    if query.startswith('move_to_supply_'):
+        return
+    elif query == 'new_orders':
+        return show_new_orders(update, context)
 
 
 def handle_users_reply(update, context):
@@ -187,6 +201,12 @@ def handle_users_reply(update, context):
     if update.message:
         user_reply = update.message.text
         chat_id = update.message.chat_id
+        if not user_reply == '/start':
+            context.bot.delete_message(
+                chat_id=update.effective_chat.id,
+                message_id=update.effective_message.message_id
+            )
+            return
     elif update.callback_query:
         user_reply = update.callback_query.data
         chat_id = update.callback_query.message.chat_id
@@ -201,8 +221,9 @@ def handle_users_reply(update, context):
         'START': show_start_menu,
         'HANDLE_MAIN_MENU': handle_main_menu,
         'HANDLE_SUPPLIES_MENU': handle_supplies_menu,
-        'HANDLE_NEW_ORDERS': handle_new_orders,
+        'HANDLE_NEW_ORDERS': show_order_details,
         'HANDLE_SUPPLY': handle_supply,
+        'HANDLE_ORDER': handle_order
     }
 
     state_handler = states_functions.get(user_state, show_start_menu)
