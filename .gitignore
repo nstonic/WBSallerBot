@@ -1,0 +1,11 @@
+venv/
+.idea/
+.env
+__pycache__/
+/bot.db
+todo.txt
+*.pdf
+*.png
+*.zip
+*.pkl
+*.json
