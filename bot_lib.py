@@ -6,7 +6,9 @@ from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import CallbackContext
 
 from api.client import WBApiClient
+from api.errors import WBAPIError
 from config import TIME_ZONE
+from redis_client import RedisClient
 
 
 def show_start_menu(update: Update, context: CallbackContext):
@@ -50,10 +52,11 @@ def show_supplies(update: Update, context: CallbackContext, only_active=True, li
         [InlineKeyboardButton('Создать новую поставку', callback_data='new_supply')],
         [InlineKeyboardButton('Основное меню', callback_data='start')]
     ])
-    context.bot.delete_message(
-        chat_id=update.effective_chat.id,
-        message_id=update.effective_message.message_id
-    )
+    if update.effective_message:
+        context.bot.delete_message(
+            chat_id=update.effective_chat.id,
+            message_id=update.effective_message.message_id
+        )
     context.bot.send_message(
         chat_id=update.effective_chat.id,
         text='Текущие незакрытые поставки',
@@ -120,6 +123,7 @@ def show_supply(update: Update, context: CallbackContext, supply_id: str):
     else:
         keyboard = [
             [InlineKeyboardButton('Удалить поставку', callback_data=f'delete_{supply_id}')],
+            [InlineKeyboardButton('Отправить в доставку', callback_data=f'close_{supply_id}')],  # DELETE_ME
             [InlineKeyboardButton('Основное меню', callback_data='start')]
         ]
         text = f'В поставке нет заказов'
@@ -233,6 +237,14 @@ def add_order_to_supply(update: Update, context: CallbackContext):
 
 
 def ask_for_supply_name(update: Update, context: CallbackContext):
+    if update.message:
+        context.bot.delete_message(
+            chat_id=update.effective_chat.id,
+            message_id=update.effective_message.message_id
+        )
+        return
+
+    redis = RedisClient()
     keyboard = [
         [InlineKeyboardButton('Назад к списку поставок', callback_data='cancel')],
         [InlineKeyboardButton('Основное меню', callback_data='start')]
@@ -241,18 +253,26 @@ def ask_for_supply_name(update: Update, context: CallbackContext):
         chat_id=update.effective_chat.id,
         message_id=update.effective_message.message_id
     )
-    context.bot.send_message(
+    message = context.bot.send_message(
         chat_id=update.effective_chat.id,
         text='Напишите название для новой поставки',
         reply_markup=InlineKeyboardMarkup(keyboard)
     )
+    redis.client.set(f'message_{update.effective_chat.id}', message.message_id)
     return 'HANDLE_NEW_SUPPLY_NAME'
 
 
 def create_new_supply(update: Update, context: CallbackContext):
     wb_api_client = WBApiClient()
+    redis = RedisClient()
     new_supply_name = update.message.text
     wb_api_client.create_new_supply(new_supply_name)
+    message_to_delete = redis.client.get(f'message_{update.effective_message.from_user.id}').decode('utf-8')
+    context.bot.delete_message(
+        chat_id=update.effective_chat.id,
+        message_id=message_to_delete
+    )
+    update.message = None
     return show_supplies(update, context)
 
 
