@@ -44,7 +44,6 @@ class Product:
 
     @staticmethod
     def parse_from_card(product_card: dict):
-        """Парсит товар из карты товара, полученной из json"""
         for characteristic in product_card.get('characteristics'):
             if name := characteristic.get('Наименование'):
                 break
