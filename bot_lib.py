@@ -1,8 +1,11 @@
+from base64 import b64decode
 from collections import Counter
 from datetime import datetime
+from io import BytesIO
 
 import pytz
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
+from PIL import Image
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, InputMediaPhoto
 from telegram.ext import CallbackContext
 
 from api.client import WBApiClient
@@ -30,13 +33,6 @@ def show_start_menu(update: Update, context: CallbackContext):
 
 
 def show_supplies(update: Update, context: CallbackContext, only_active=True, limit=10):
-    if update.message:
-        context.bot.delete_message(
-            chat_id=update.effective_chat.id,
-            message_id=update.effective_message.message_id
-        )
-        return
-
     wb_api_client = WBApiClient()
     active_supplies = wb_api_client.get_supplies(only_active, limit)
 
@@ -66,13 +62,6 @@ def show_supplies(update: Update, context: CallbackContext, only_active=True, li
 
 
 def show_new_orders(update: Update, context: CallbackContext):
-    if update.message:
-        context.bot.delete_message(
-            chat_id=update.effective_chat.id,
-            message_id=update.effective_message.message_id
-        )
-        return
-
     wb_api_client = WBApiClient()
     new_orders = wb_api_client.get_new_orders()
     keyboard = [
@@ -99,13 +88,6 @@ def show_new_orders(update: Update, context: CallbackContext):
 
 
 def show_supply(update: Update, context: CallbackContext, supply_id: str):
-    if update.message:
-        context.bot.delete_message(
-            chat_id=update.effective_chat.id,
-            message_id=update.effective_message.message_id
-        )
-        return
-
     wb_api_client = WBApiClient()
     orders = wb_api_client.get_supply_orders(supply_id)
     if orders:
@@ -141,13 +123,6 @@ def show_supply(update: Update, context: CallbackContext, supply_id: str):
 
 
 def show_order_details(update: Update, context: CallbackContext):
-    if update.message:
-        context.bot.delete_message(
-            chat_id=update.effective_chat.id,
-            message_id=update.effective_message.message_id
-        )
-        return
-
     wb_api_client = WBApiClient()
     for order in wb_api_client.get_new_orders():
         if order.order_id == int(update.callback_query.data):
@@ -184,17 +159,30 @@ def send_stickers(update: Update, context: CallbackContext, supply_id: str):
 
 
 def close_supply(update: Update, context: CallbackContext, supply_id: str):
-    pass
+    wb_api_client = WBApiClient()
+    status_code = wb_api_client.send_supply_to_deliver(supply_id)
+    if status_code != 204:
+        raise WBAPIError(message=update.callback_query.data, code=status_code)
+    context.bot.answer_callback_query(update.callback_query.id, 'Отправлено в доставку')
+
+    supply_sticker = wb_api_client.get_supply_sticker(supply_id)
+    sticker_in_byte_format = b64decode(supply_sticker.image_string, validate=True)
+    image = Image.open(
+        BytesIO(
+            sticker_in_byte_format
+        )
+    ).rotate(-90, expand=True)
+    image_to_sending = BytesIO()
+    image.save(image_to_sending, format='PNG')
+
+    context.bot.send_photo(
+        chat_id=update.effective_chat.id,
+        photo=image_to_sending.getvalue()
+    )
+    return show_supplies(update, context)
 
 
 def ask_for_supply_id(update: Update, context: CallbackContext):
-    if update.message:
-        context.bot.delete_message(
-            chat_id=update.effective_chat.id,
-            message_id=update.effective_message.message_id
-        )
-        return
-
     wb_api_client = WBApiClient()
     active_supplies = wb_api_client.get_supplies()
     _, order_id = update.callback_query.data.split('_', maxsplit=1)
@@ -223,13 +211,6 @@ def ask_for_supply_id(update: Update, context: CallbackContext):
 
 
 def add_order_to_supply(update: Update, context: CallbackContext):
-    if update.message:
-        context.bot.delete_message(
-            chat_id=update.effective_chat.id,
-            message_id=update.effective_message.message_id
-        )
-        return
-
     supply_id, order_id = update.callback_query.data.split('_')
     wb_api_client = WBApiClient()
     wb_api_client.add_order_to_supply(supply_id, order_id)
@@ -237,13 +218,6 @@ def add_order_to_supply(update: Update, context: CallbackContext):
 
 
 def ask_for_supply_name(update: Update, context: CallbackContext):
-    if update.message:
-        context.bot.delete_message(
-            chat_id=update.effective_chat.id,
-            message_id=update.effective_message.message_id
-        )
-        return
-
     redis = RedisClient()
     keyboard = [
         [InlineKeyboardButton('Назад к списку поставок', callback_data='cancel')],
@@ -277,12 +251,6 @@ def create_new_supply(update: Update, context: CallbackContext):
 
 
 def delete_supply(update, context, supply_id: str):
-    if update.message:
-        context.bot.delete_message(
-            chat_id=update.effective_chat.id,
-            message_id=update.effective_message.message_id
-        )
-        return
     wb_api_client = WBApiClient()
     wb_api_client.delete_supply_by_id(supply_id)
     context.bot.answer_callback_query(
