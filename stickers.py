@@ -1,9 +1,7 @@
 import os
 import pathlib
-from base64 import b64decode
 
 from pathvalidate import sanitize_filename
-from PIL import Image as PilImage
 from reportlab.graphics.barcode import code128
 from reportlab.lib.styles import getSampleStyleSheet
 from reportlab.lib.units import mm
@@ -15,20 +13,6 @@ from reportlab.platypus.para import Paragraph
 from reportlab.platypus.tables import Table
 
 from config import BASE_PATH
-from db.models import OrderModel
-
-
-def save_image_from_str_to_png(image: str, path: str):
-    sticker_in_byte_format = b64decode(image, validate=True)
-    with open(os.path.join(BASE_PATH, path), 'wb') as file:
-        file.write(sticker_in_byte_format)
-
-
-def rotate_image(file_path: str):
-    with PilImage.open(file_path) as image:
-        image.load()
-        rotated_image = image.rotate(-90, expand=True)
-        rotated_image.save(file_path)
 
 
 def create_stickers(grouped_orders: dict[str:list[OrderModel]], supply_id: str) -> tuple[str, dict]:
