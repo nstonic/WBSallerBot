@@ -34,6 +34,12 @@ tg_logger = logging.getLogger('TG_logger')
 
 
 def handle_main_menu(update: Update, context: CallbackContext):
+    if update.message:
+        context.bot.delete_message(
+            chat_id=update.effective_chat.id,
+            message_id=update.effective_message.message_id
+        )
+        return
     query = update.callback_query.data
     if query == 'show_supplies':
         return show_supplies(update, context)
@@ -42,6 +48,12 @@ def handle_main_menu(update: Update, context: CallbackContext):
 
 
 def handle_supplies_menu(update: Update, context: CallbackContext):
+    if update.message:
+        context.bot.delete_message(
+            chat_id=update.effective_chat.id,
+            message_id=update.effective_message.message_id
+        )
+        return
     query = update.callback_query.data
     if query.startswith('supply_'):
         _, supply_id = query.split('_', maxsplit=1)
@@ -53,6 +65,12 @@ def handle_supplies_menu(update: Update, context: CallbackContext):
 
 
 def handle_supply(update: Update, context: CallbackContext):
+    if update.message:
+        context.bot.delete_message(
+            chat_id=update.effective_chat.id,
+            message_id=update.effective_message.message_id
+        )
+        return
     query = update.callback_query.data
     _, supply_id = query.split('_', maxsplit=1)
     if query.startswith('stickers_'):
@@ -64,6 +82,12 @@ def handle_supply(update: Update, context: CallbackContext):
 
 
 def handle_order(update: Update, context: CallbackContext):
+    if update.message:
+        context.bot.delete_message(
+            chat_id=update.effective_chat.id,
+            message_id=update.effective_message.message_id
+        )
+        return
     query = update.callback_query.data
     if query.startswith('add_'):
         return ask_for_supply_id(update, context)
@@ -147,7 +171,7 @@ def main():
     dispatcher.add_handler(CallbackQueryHandler(handle_users_reply_with_owner_id))
     dispatcher.add_handler(MessageHandler(Filters.text, handle_users_reply_with_owner_id))
     dispatcher.add_handler(CommandHandler('start', handle_users_reply_with_owner_id))
-    if tg_token := env('TG_LOGGER_TOKEN'):
+    if tg_token := env('TG_LOGGER_TOKEN', None):
         tg_logger.setLevel(logging.WARNING)
         tg_logger.addHandler(TGLoggerHandler(
             tg_token=tg_token,
