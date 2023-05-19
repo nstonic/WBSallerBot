@@ -3,7 +3,7 @@ from typing import Iterable, Generator
 import more_itertools
 import requests
 
-from .classes import Supply, Order, Product, Sticker, SupplySticker
+from .classes import Supply, Order, Product, OrderQRCode, SupplySticker
 from .errors import check_response, retry_on_network_error, WBAPIError
 
 
@@ -115,7 +115,7 @@ class WBApiClient:
         return supplies
 
     @retry_on_network_error
-    def get_stickers(self, order_ids: list[int]) -> list[Sticker]:
+    def get_qr_codes_for_orders(self, order_ids: list[int]) -> list[OrderQRCode]:
         stickers = list()
         for chunk in more_itertools.chunked(order_ids, 100):
             response = requests.post(
@@ -129,7 +129,7 @@ class WBApiClient:
                 }
             )
             check_response(response)
-            stickers.extend([Sticker.parse_obj(sticker) for sticker in response.json()['stickers']])
+            stickers.extend([OrderQRCode.parse_obj(sticker) for sticker in response.json()['stickers']])
         return stickers
 
     @retry_on_network_error

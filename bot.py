@@ -12,7 +12,7 @@ from telegram.ext import (
     CallbackContext
 )
 
-from api.client import WBApiClient
+from wb_api.client import WBApiClient
 from bot_lib import (
     show_start_menu,
     show_supplies,

@@ -23,7 +23,7 @@ class Order(BaseModel):
     created_at: datetime.datetime = Field(alias='createdAt')
 
 
-class Sticker(BaseModel):
+class OrderQRCode(BaseModel):
     order_id: int = Field(alias='orderId')
     file: str
     partA: str
