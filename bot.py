@@ -1,5 +1,7 @@
+import datetime
 import logging
 from collections import Counter
+from functools import partial
 
 from environs import Env
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
@@ -26,11 +28,6 @@ def show_start_menu(update: Update, context: CallbackContext):
         [InlineKeyboardButton('Показать поставки', callback_data='show_supplies')],
         [InlineKeyboardButton('Новые заказы', callback_data='new_orders')]
     ]
-    keyboard_markup = InlineKeyboardMarkup(
-        keyboard,
-        resize_keyboard=True,
-        one_time_keyboard=True
-    )
     context.bot.delete_message(
         chat_id=update.effective_chat.id,
         message_id=update.effective_message.message_id
@@ -38,14 +35,21 @@ def show_start_menu(update: Update, context: CallbackContext):
     context.bot.send_message(
         chat_id=user_id,
         text='Основное меню',
-        reply_markup=keyboard_markup
+        reply_markup=InlineKeyboardMarkup(keyboard)
     )
     return 'HANDLE_MAIN_MENU'
 
 
-def show_supplies(update: Update, context: CallbackContext):
+def show_supplies(update: Update, context: CallbackContext, only_active=True, limit=10):
+    if update.message:
+        context.bot.delete_message(
+            chat_id=update.effective_chat.id,
+            message_id=update.effective_message.message_id
+        )
+        return
+
     wb_api_client = WBApiClient()
-    active_supplies = wb_api_client.get_supplies()
+    active_supplies = wb_api_client.get_supplies(only_active, limit)
 
     is_done = {0: 'Открыта', 1: 'Закрыта'}
     keyboard = []
@@ -56,6 +60,7 @@ def show_supplies(update: Update, context: CallbackContext):
         ])
     keyboard.extend([
         [InlineKeyboardButton('Показать больше поставок', callback_data='more_supplies')],
+        [InlineKeyboardButton('Создать новую поставку', callback_data='new_supply')],
         [InlineKeyboardButton('Основное меню', callback_data='start')]
     ])
     context.bot.delete_message(
@@ -71,6 +76,13 @@ def show_supplies(update: Update, context: CallbackContext):
 
 
 def show_new_orders(update: Update, context: CallbackContext):
+    if update.message:
+        context.bot.delete_message(
+            chat_id=update.effective_chat.id,
+            message_id=update.effective_message.message_id
+        )
+        return
+
     wb_api_client = WBApiClient()
     new_orders = wb_api_client.get_new_orders()
     keyboard = [
@@ -96,9 +108,15 @@ def show_new_orders(update: Update, context: CallbackContext):
     return 'HANDLE_NEW_ORDERS'
 
 
-def show_supply(update: Update, context: CallbackContext):
+def show_supply(update: Update, context: CallbackContext, supply_id: str):
+    if update.message:
+        context.bot.delete_message(
+            chat_id=update.effective_chat.id,
+            message_id=update.effective_message.message_id
+        )
+        return
+
     wb_api_client = WBApiClient()
-    _, supply_id = update.callback_query.data.split('_')
     orders = wb_api_client.get_supply_orders(supply_id)
     if orders:
         keyboard = [
@@ -114,7 +132,8 @@ def show_supply(update: Update, context: CallbackContext):
         text = f'Заказы по поставке {supply_id}:\n\n{joined_orders}'
     else:
         keyboard = [
-            [InlineKeyboardButton('Удалить поставку', callback_data=f'delete_{supply_id}')]
+            [InlineKeyboardButton('Удалить поставку', callback_data=f'delete_{supply_id}')],
+            [InlineKeyboardButton('Основное меню', callback_data='start')]
         ]
         text = f'В поставке нет заказов'
 
@@ -131,8 +150,14 @@ def show_supply(update: Update, context: CallbackContext):
 
 
 def show_order_details(update: Update, context: CallbackContext):
-    wb_api_client = WBApiClient()
+    if update.message:
+        context.bot.delete_message(
+            chat_id=update.effective_chat.id,
+            message_id=update.effective_message.message_id
+        )
+        return
 
+    wb_api_client = WBApiClient()
     for order in wb_api_client.get_new_orders():
         if order.order_id == int(update.callback_query.data):
             current_order = order
@@ -145,7 +170,7 @@ def show_order_details(update: Update, context: CallbackContext):
         f'Информация по заказу {current_order.order_id}'
     )
     keyboard = [
-        [InlineKeyboardButton('Перенести в поставку', callback_data=f'move_to_supply_{current_order.order_id}')],
+        [InlineKeyboardButton('Перенести в поставку', callback_data=f'add_to_supply_{current_order.order_id}')],
         [InlineKeyboardButton('Вернуться к списку заказов', callback_data=f'new_orders')],
         [InlineKeyboardButton('Основное меню', callback_data='start')]
     ]
@@ -163,55 +188,173 @@ def show_order_details(update: Update, context: CallbackContext):
     return 'HANDLE_ORDER'
 
 
+def send_stickers(update: Update, context: CallbackContext, supply_id: str):
+    pass
+
+
+def close_supply(update: Update, context: CallbackContext, supply_id: str):
+    pass
+
+
+def ask_for_supply_id(update: Update, context: CallbackContext):
+    if update.message:
+        context.bot.delete_message(
+            chat_id=update.effective_chat.id,
+            message_id=update.effective_message.message_id
+        )
+        return
+
+    wb_api_client = WBApiClient()
+    active_supplies = wb_api_client.get_supplies()
+    _, order_id = update.callback_query.data.split('_', maxsplit=1)
+    keyboard = []
+    for supply in active_supplies:
+        button_name = f'{supply.name} | {supply.supply_id}'
+        keyboard.append([
+            InlineKeyboardButton(button_name, callback_data=f'{supply.supply_id}_{order_id}')
+        ])
+
+    keyboard.extend([
+        [InlineKeyboardButton('Создать новую поставку', callback_data='new_supply')],
+        [InlineKeyboardButton('Назад к списку заказов', callback_data='new_orders')],
+        [InlineKeyboardButton('Основное меню', callback_data='start')]
+    ])
+    context.bot.delete_message(
+        chat_id=update.effective_chat.id,
+        message_id=update.effective_message.message_id
+    )
+    context.bot.send_message(
+        chat_id=update.effective_chat.id,
+        text='Выберите поставку',
+        reply_markup=InlineKeyboardMarkup(keyboard)
+    )
+    return 'HANDLE_SUPPLY_CHOICE'
+
+
+def add_order_to_supply(update: Update, context: CallbackContext):
+    if update.message:
+        context.bot.delete_message(
+            chat_id=update.effective_chat.id,
+            message_id=update.effective_message.message_id
+        )
+        return
+
+    supply_id, order_id = update.callback_query.data.split('_')
+    wb_api_client = WBApiClient()
+    wb_api_client.add_order_to_supply(supply_id, order_id)
+    return show_supply(update, context, supply_id)
+
+
+def ask_for_supply_name(update: Update, context: CallbackContext):
+    keyboard = [
+        [InlineKeyboardButton('Назад к списку поставок', callback_data='cancel')],
+        [InlineKeyboardButton('Основное меню', callback_data='start')]
+    ]
+    context.bot.delete_message(
+        chat_id=update.effective_chat.id,
+        message_id=update.effective_message.message_id
+    )
+    context.bot.send_message(
+        chat_id=update.effective_chat.id,
+        text='Напишите название для новой поставки',
+        reply_markup=InlineKeyboardMarkup(keyboard)
+    )
+    return 'HANDLE_NEW_SUPPLY_NAME'
+
+
+def create_new_supply(update: Update, context: CallbackContext):
+    wb_api_client = WBApiClient()
+    new_supply_name = update.message.text
+    wb_api_client.create_new_supply(new_supply_name)
+    return show_supplies(update, context)
+
+
+def delete_supply(update, context, supply_id: str):
+    if update.message:
+        context.bot.delete_message(
+            chat_id=update.effective_chat.id,
+            message_id=update.effective_message.message_id
+        )
+        return
+    wb_api_client = WBApiClient()
+    wb_api_client.delete_supply_by_id(supply_id)
+    context.bot.answer_callback_query(
+        update.callback_query.id,
+        'Поставка удалена'
+    )
+    return show_supplies(update, context)
+
+
 def handle_main_menu(update: Update, context: CallbackContext):
     query = update.callback_query.data
     if query == 'show_supplies':
         return show_supplies(update, context)
-    elif query == 'new_orders':
+    if query == 'new_orders':
         return show_new_orders(update, context)
 
 
 def handle_supplies_menu(update: Update, context: CallbackContext):
     query = update.callback_query.data
     if query.startswith('supply_'):
-        return show_supply(update, context)
-    elif query == 'more_supplies':
-        return
+        _, supply_id = query.split('_', maxsplit=1)
+        return show_supply(update, context, supply_id)
+    if query == 'more_supplies':
+        return show_supplies(update, context, only_active=False)
+    if query == 'new_supply':
+        return ask_for_supply_name(update, context)
 
 
 def handle_supply(update: Update, context: CallbackContext):
     query = update.callback_query.data
+    _, supply_id = query.split('_', maxsplit=1)
     if query.startswith('stickers_'):
-        return
-    elif query.startswith('close_'):
-        return
+        return send_stickers(update, context, supply_id)
+    if query.startswith('close_'):
+        return close_supply(update, context, supply_id)
+    if query.startswith('delete_'):
+        return delete_supply(update, context, supply_id)
 
 
 def handle_order(update: Update, context: CallbackContext):
     query = update.callback_query.data
-    if query.startswith('move_to_supply_'):
-        return
-    elif query == 'new_orders':
+    if query.startswith('add_'):
+        return ask_for_supply_id(update, context)
+    if query == 'new_orders':
         return show_new_orders(update, context)
 
 
-def handle_users_reply(update, context):
+def handle_new_supply_name(update: Update, context: CallbackContext):
+    if update.message:
+        return create_new_supply(update, context)
+    if update.callback_query.data == 'cancel':
+        return show_supplies(update, context)
+
+
+def handle_supply_choice(update: Update, context: CallbackContext):
+    query = update.callback_query.data
+    if query == 'new_orders':
+        return show_new_orders(update, context)
+    if query == 'new_supply':
+        return ask_for_supply_name(update, context)
+    if query == 'add_':
+        return add_order_to_supply(update, context)
+
+
+def handle_users_reply(update: Update, context: CallbackContext, owner_id: int):
     db = RedisClient()
+
+    if update.effective_chat.id != owner_id:
+        return
 
     if update.message:
         user_reply = update.message.text
         chat_id = update.message.chat_id
-        if not user_reply == '/start':
-            context.bot.delete_message(
-                chat_id=update.effective_chat.id,
-                message_id=update.effective_message.message_id
-            )
-            return
     elif update.callback_query:
         user_reply = update.callback_query.data
         chat_id = update.callback_query.message.chat_id
     else:
         return
+
     if user_reply in ['/start', 'start']:
         user_state = 'START'
         db.client.set(chat_id, user_state)
@@ -223,7 +366,9 @@ def handle_users_reply(update, context):
         'HANDLE_SUPPLIES_MENU': handle_supplies_menu,
         'HANDLE_NEW_ORDERS': show_order_details,
         'HANDLE_SUPPLY': handle_supply,
-        'HANDLE_ORDER': handle_order
+        'HANDLE_ORDER': handle_order,
+        'HANDLE_NEW_SUPPLY_NAME': handle_new_supply_name,
+        'HANDLE_SUPPLY_CHOICE': handle_supply_choice
     }
 
     state_handler = states_functions.get(user_state, show_start_menu)
@@ -235,7 +380,7 @@ def handle_users_reply(update, context):
 
 
 def error_handler(update: Update, context: CallbackContext):
-    tg_logger.error(msg="шибка в боте", exc_info=context.error)
+    tg_logger.error(msg="Ошибка в боте", exc_info=context.error)
 
 
 def main():
@@ -243,24 +388,25 @@ def main():
     env.read_env()
     WBApiClient(token=env('WB_API_KEY'))
     RedisClient(
-        password=env('REDIS_PASSWORD'),
         host=env('REDIS_URL'),
-        port=env('REDIS_PORT')
+        port=env('REDIS_PORT'),
+        password=env('REDIS_PASSWORD')
     )
-    tg_logger.setLevel(logging.WARNING)
-    tg_logger.addHandler(TGLoggerHandler(
-        tg_token=env('TG_TOKEN'),
-        chat_id=env('OWNER_ID'),
-    ))
+    handle_users_reply_with_owner_id = partial(handle_users_reply, owner_id=env.int('OWNER_ID'))
     token = env('TG_TOKEN')
     updater = Updater(token)
     dispatcher = updater.dispatcher
-    dispatcher.add_handler(CallbackQueryHandler(handle_users_reply))
-    dispatcher.add_handler(MessageHandler(Filters.text, handle_users_reply))
-    dispatcher.add_handler(CommandHandler('start', handle_users_reply))
-    # dispatcher.add_error_handler(error_handler)
+    dispatcher.add_handler(CallbackQueryHandler(handle_users_reply_with_owner_id))
+    dispatcher.add_handler(MessageHandler(Filters.text, handle_users_reply_with_owner_id))
+    dispatcher.add_handler(CommandHandler('start', handle_users_reply_with_owner_id))
+    if tg_token := env('TG_LOGGER_TOKEN'):
+        tg_logger.setLevel(logging.WARNING)
+        tg_logger.addHandler(TGLoggerHandler(
+            tg_token=tg_token,
+            chat_id=env('ADMIN_ID')
+        ))
+        dispatcher.add_error_handler(error_handler)
     updater.start_polling()
-    updater.idle()
 
 
 if __name__ == '__main__':
