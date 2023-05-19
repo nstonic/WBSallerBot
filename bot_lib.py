@@ -1,10 +1,12 @@
 from collections import Counter
+from datetime import datetime
 
+import pytz
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import CallbackContext
 
 from api.client import WBApiClient
-from utils import convert_to_created_ago
+from config import TIME_ZONE
 
 
 def show_start_menu(update: Update, context: CallbackContext):
@@ -268,3 +270,11 @@ def delete_supply(update, context, supply_id: str):
         'Поставка удалена'
     )
     return show_supplies(update, context)
+
+
+def convert_to_created_ago(created_at: datetime) -> str:
+    created_ago = datetime.now().astimezone(pytz.timezone(TIME_ZONE)) - \
+                  created_at.astimezone(pytz.timezone(TIME_ZONE))
+    hours, seconds = divmod(created_ago.seconds, 3600)
+    minutes, seconds = divmod(seconds, 60)
+    return f'{hours:02.0f}:{minutes:02.0f}:{seconds:02.0f}'
