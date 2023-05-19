@@ -1,15 +1,13 @@
-from base64 import b64decode
 from collections import Counter
 from datetime import datetime
-from io import BytesIO
 
 import pytz
-from PIL import Image
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import CallbackContext
 
-from api.client import WBApiClient
-from api.errors import WBAPIError
+from stickers import create_supply_sticker, get_orders_stickers
+from wb_api.client import WBApiClient
+from wb_api.errors import WBAPIError
 from config import TIME_ZONE
 from redis_client import RedisClient
 
@@ -159,7 +157,28 @@ def show_order_details(update: Update, context: CallbackContext):
 
 
 def send_stickers(update: Update, context: CallbackContext, supply_id: str):
-    pass
+    wb_api_client = WBApiClient()
+    context.bot.answer_callback_query(
+        update.callback_query.id,
+        'Запущена подготовка стикеров. Подождите'
+    )
+    orders = wb_api_client.get_supply_orders(supply_id)
+    order_qr_codes = wb_api_client.get_qr_codes_for_orders(
+        [order.order_id for order in orders]
+    )
+    articles = set([order.article for order in orders])
+    products = [wb_api_client.get_product(article) for article in articles]
+    zip_file = get_orders_stickers(
+        orders,
+        products,
+        order_qr_codes,
+        supply_id
+    )
+    context.bot.send_document(
+        chat_id=update.effective_chat.id,
+        document=zip_file.getvalue(),
+        filename=zip_file.name
+    )
 
 
 def close_supply(update: Update, context: CallbackContext, supply_id: str):
@@ -168,20 +187,11 @@ def close_supply(update: Update, context: CallbackContext, supply_id: str):
     if status_code != 204:
         raise WBAPIError(message=update.callback_query.data, code=status_code)
     context.bot.answer_callback_query(update.callback_query.id, 'Отправлено в доставку')
-
-    supply_sticker = wb_api_client.get_supply_sticker(supply_id)
-    sticker_in_byte_format = b64decode(supply_sticker.image_string, validate=True)
-    image = Image.open(
-        BytesIO(
-            sticker_in_byte_format
-        )
-    ).rotate(-90, expand=True)
-    image_to_sending = BytesIO()
-    image.save(image_to_sending, format='PNG')
-
+    supply_sticker_obj = wb_api_client.get_supply_sticker(supply_id)
+    supply_sticker = create_supply_sticker(supply_sticker_obj)
     context.bot.send_photo(
         chat_id=update.effective_chat.id,
-        photo=image_to_sending.getvalue()
+        photo=supply_sticker
     )
     return show_supplies(update, context)
 
