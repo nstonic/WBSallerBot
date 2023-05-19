@@ -17,6 +17,8 @@ class Supply(BaseModel):
 
 class Order(BaseModel):
     order_id: int = Field(alias='id')
+    supply_id: str = Field(alias='supplyId', default='Не закреплён за поставкой')
+    converted_price: int = Field(alias='convertedPrice')
     article: str
     created_at: datetime.datetime = Field(alias='createdAt')
 

@@ -115,7 +115,7 @@ def handle_supply_choice(update: Update, context: CallbackContext):
 def handle_users_reply(update: Update, context: CallbackContext, owner_id: int):
     db = RedisClient()
 
-    if update.effective_chat.id != owner_id:
+    if not update.effective_chat.id == owner_id:
         return
 
     if update.message:
@@ -152,7 +152,7 @@ def handle_users_reply(update: Update, context: CallbackContext, owner_id: int):
 
 
 def error_handler(update: Update, context: CallbackContext):
-    tg_logger.error(msg="Ошибка в боте", exc_info=context.error)
+    tg_logger.error(msg='Ошибка в боте', exc_info=context.error)
 
 
 def main():

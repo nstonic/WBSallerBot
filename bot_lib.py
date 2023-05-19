@@ -5,7 +5,7 @@ from io import BytesIO
 
 import pytz
 from PIL import Image
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, InputMediaPhoto
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import CallbackContext
 
 from api.client import WBApiClient
@@ -93,6 +93,7 @@ def show_supply(update: Update, context: CallbackContext, supply_id: str):
     if orders:
         keyboard = [
             [InlineKeyboardButton('Создать стикеры', callback_data=f'stickers_{supply_id}')],
+            [InlineKeyboardButton('Редактировать заказы', callback_data=f'edit_{supply_id}')],
             [InlineKeyboardButton('Отправить в доставку', callback_data=f'close_{supply_id}')],
             [InlineKeyboardButton('Основное меню', callback_data='start')]
         ]
@@ -146,10 +147,13 @@ def show_order_details(update: Update, context: CallbackContext):
     )
     context.bot.send_message(
         chat_id=update.effective_chat.id,
-        text=f'Номер заказа: {current_order.order_id}\n'
-             f'Артикул: {current_order.article}\n'
-             f'Время с момента заказа: {convert_to_created_ago(order.created_at)}',
-        reply_markup=InlineKeyboardMarkup(keyboard)
+        text=f'Номер заказа: <b>{current_order.order_id}</b>\n'
+             f'Артикул: <b>{current_order.article}</b>\n'
+             f'Поставка: <b>{current_order.supply_id}</b>\n'
+             f'Время с момента заказа: <b>{convert_to_created_ago(order.created_at)}</b>\n'
+             f'Цена: <b>{current_order.converted_price / 100} ₽</b>\n',
+        reply_markup=InlineKeyboardMarkup(keyboard),
+        parse_mode='HTML'
     )
     return 'HANDLE_ORDER'
 
@@ -241,11 +245,12 @@ def create_new_supply(update: Update, context: CallbackContext):
     redis = RedisClient()
     new_supply_name = update.message.text
     wb_api_client.create_new_supply(new_supply_name)
-    message_to_delete = redis.client.get(f'message_{update.effective_message.from_user.id}').decode('utf-8')
-    context.bot.delete_message(
-        chat_id=update.effective_chat.id,
-        message_id=message_to_delete
-    )
+    message_to_delete = redis.client.get(f'message_{update.effective_message.from_user.id}')
+    if message_to_delete:
+        context.bot.delete_message(
+            chat_id=update.effective_chat.id,
+            message_id=message_to_delete.decode('utf-8')
+        )
     update.message = None
     return show_supplies(update, context)
 
