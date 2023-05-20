@@ -104,8 +104,11 @@ def handle_new_supply_name(update: Update, context: CallbackContext):
 
 def handle_new_orders(update: Update, context: CallbackContext):
     query = update.callback_query.data
-    if query.isdigit():
-        return show_new_orders(update, context, int(query))
+    if query.startswith('page_'):
+        _, page = query.split('_', maxsplit=1)
+        return show_new_orders(update, context, int(page))
+    else:
+        return show_order_details(update, context)
 
 
 def handle_supply_choice(update: Update, context: CallbackContext):

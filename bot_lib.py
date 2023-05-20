@@ -63,7 +63,6 @@ def show_supplies(update: Update, context: CallbackContext, only_active=True, li
 def show_new_orders(update: Update, context: CallbackContext, page: int = 0):
     wb_api_client = WBApiClient()
     keyboard_menu_buttons = [InlineKeyboardButton('Основное меню', callback_data='start')]
-    text = 'Новые заказы:\n(Артикул | Время с момента заказа)'
     new_orders = wb_api_client.get_new_orders()
     if len(new_orders) > 10:
         text = f'Новые заказы (стр. {page + 1}):\n(Артикул | Время с момента заказа)'
@@ -76,16 +75,18 @@ def show_new_orders(update: Update, context: CallbackContext, page: int = 0):
                 0,
                 InlineKeyboardButton(
                     f'< стр {page} из {max_page + 1}',
-                    callback_data=page - 1
+                    callback_data=f'page_{page - 1}'
                 )
             )
         if page < max_page:
             keyboard_menu_buttons.append(
                 InlineKeyboardButton(
                     f'стр {page + 2} из {max_page + 1} >',
-                    callback_data=page + 1
+                    callback_data=f'page_{page + 1}'
                 )
             )
+    else:
+        text = 'Новые заказы:\n(Артикул | Время с момента заказа)'
 
     keyboard = [
         [InlineKeyboardButton(
