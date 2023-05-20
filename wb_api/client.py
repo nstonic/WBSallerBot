@@ -158,11 +158,43 @@ class WBApiClient:
     @retry_on_network_error
     def get_new_orders(self) -> list[Order]:
         response = requests.get(
-            f'https://suppliers-api.wildberries.ru/api/v3/orders/new',
+            'https://suppliers-api.wildberries.ru/api/v3/orders/new',
             headers=self._headers
         )
         check_response(response)
-        return [Order.parse_obj(order) for order in response.json()['orders']]
+        return [
+            Order.parse_obj(order)
+            for order in response.json()['orders']
+        ]
+
+    @retry_on_network_error
+    def get_orders(
+            self,
+            next: int = 0,
+            limit: int = 100,
+            datestamp_from: int = None,
+            datestamp_to: int = None
+    ) -> tuple[list[Order], int]:
+        params = {
+            'next': next,
+            'limit': limit
+        }
+        if datestamp_from:
+            params['dateFrom'] = datestamp_from
+        if datestamp_to:
+            params['dateTo'] = datestamp_to
+        response = requests.get(
+            'https://suppliers-api.wildberries.ru/api/v3/orders',
+            headers=self._headers,
+            params=params
+        )
+        check_response(response)
+        response_content = response.json()
+        orders = [
+            Order.parse_obj(order)
+            for order in response_content['orders']
+        ]
+        return orders, response_content['next']
 
     @retry_on_network_error
     def add_order_to_supply(self, supply_id: str, order_id: int | str) -> int:
