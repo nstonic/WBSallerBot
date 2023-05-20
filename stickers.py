@@ -39,21 +39,28 @@ def get_orders_stickers(
         qr_codes: list[OrderQRCode],
         supply_id: str
 ) -> BytesIO:
-    articles = set([order.article for order in orders])
+    articles = set(order.article for order in orders)
     sticker_files = []
     for article in articles:
-        orders_with_same_article = list(filter(
-            lambda o: o.article == article,
-            orders
-        ))
-        product = next(filter(
-            lambda p: p.article == article,
-            products
-        ))
-        sticker_file = create_stickers_for_order(
-            orders_with_same_article,
+        orders_with_same_article = [
+            order.order_id
+            for order in orders
+            if order.article == article
+        ]
+        product = next(
+            filter(
+                lambda p: p.article == article,
+                products
+            )
+        )
+        orders_qr_codes = [
+            qr_code
+            for qr_code in qr_codes
+            if qr_code.order_id in orders_with_same_article
+        ]
+        sticker_file = create_stickers_by_article(
             product,
-            qr_codes
+            orders_qr_codes
         )
         sticker_files.append(sticker_file)
 
@@ -65,35 +72,20 @@ def get_orders_stickers(
     return zip_file
 
 
-def create_stickers_for_order(
-        orders: list[Order],
+def create_stickers_by_article(
         product: Product,
         qr_codes: list[OrderQRCode]
 ) -> BytesIO:
     order_qr_code_files = []
-    for order in orders:
-        order_qr_code = next(filter(
-            lambda qr: qr.order_id == order.order_id,
-            qr_codes
-        ))
-        sticker_in_byte_format = b64decode(
-            order_qr_code.file,
+    for qr_code in qr_codes:
+        qr_code_in_byte_format = b64decode(
+            qr_code.file,
             validate=True
         )
         order_qr_code_files.append(
-            BytesIO(sticker_in_byte_format)
+            BytesIO(qr_code_in_byte_format)
         )
-    return build_pdf_with_stickers_for_order(
-        product,
-        order_qr_code_files
-    )
 
-
-def build_pdf_with_stickers_for_order(
-        product: Product,
-        order_qr_code_files:
-        list[BytesIO]
-) -> BytesIO:
     pdf_file = BytesIO()
     pdf_file.name = f'{product.article}.pdf'
 
@@ -107,7 +99,7 @@ def build_pdf_with_stickers_for_order(
     frame_description = Frame(10 * mm, 5 * mm, 100 * mm, 40 * mm)
 
     elements = []
-    for sticker in order_qr_code_files:
+    for qr_code in order_qr_code_files:
         data = [
             [Paragraph(product.name, style)],
             [Paragraph(f'Артикул: {product.article}', style)],
@@ -115,7 +107,7 @@ def build_pdf_with_stickers_for_order(
             [Paragraph(f'Бренд: {config.BRAND}', style)]
         ]
 
-        elements.append(Image(sticker, useDPI=300, width=95 * mm, height=65 * mm))
+        elements.append(Image(qr_code, useDPI=300, width=95 * mm, height=65 * mm))
         elements.append(NextPageTemplate('Barcode'))
         elements.append(PageBreak())
         elements.append(Table(data, colWidths=[100 * mm]))
