@@ -175,7 +175,7 @@ def main():
         tg_logger.setLevel(logging.WARNING)
         tg_logger.addHandler(TGLoggerHandler(
             tg_token=tg_token,
-            chat_id=env('ADMIN_ID')
+            chat_id=env.int('ADMIN_ID')
         ))
         dispatcher.add_error_handler(error_handler)
     updater.start_polling()

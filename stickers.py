@@ -14,6 +14,7 @@ from reportlab.platypus import Image, Frame, PageBreak
 from reportlab.platypus.para import Paragraph
 from reportlab.platypus.tables import Table
 
+import config
 from wb_api.classes import Order, Product, OrderQRCode, SupplySticker
 
 
@@ -96,12 +97,12 @@ def build_pdf_with_stickers_for_order(
     pdf_file = BytesIO()
     pdf_file.name = f'{product.article}.pdf'
 
-    font_path = os.path.join(pathlib.Path(__file__).parent.resolve(), 'arial.ttf')
-    pdfmetrics.registerFont(TTFont('Arial', font_path))
+    font_path = os.path.join(pathlib.Path(__file__).parent.resolve(), config.FONT_FILE)
+    pdfmetrics.registerFont(TTFont(config.FONT_NAME, font_path))
     sticker_size = (120 * mm, 75 * mm)
     pdf = BaseDocTemplate(pdf_file, showBoundary=0)
     style = getSampleStyleSheet()['BodyText']
-    style.fontName = 'Arial'
+    style.fontName = config.FONT_NAME
     frame_sticker = Frame(0, 0, *sticker_size)
     frame_description = Frame(10 * mm, 5 * mm, 100 * mm, 40 * mm)
 
@@ -110,8 +111,8 @@ def build_pdf_with_stickers_for_order(
         data = [
             [Paragraph(product.name, style)],
             [Paragraph(f'Артикул: {product.article}', style)],
-            [Paragraph('Страна: Россия', style)],
-            [Paragraph('Бренд: CVT', style)]
+            [Paragraph(f'Страна: {config.COUNTRY}', style)],
+            [Paragraph(f'Бренд: {config.BRAND}', style)]
         ]
 
         elements.append(Image(sticker, useDPI=300, width=95 * mm, height=65 * mm))
