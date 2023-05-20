@@ -102,6 +102,12 @@ def handle_new_supply_name(update: Update, context: CallbackContext):
         return show_supplies(update, context)
 
 
+def handle_new_orders(update: Update, context: CallbackContext):
+    query = update.callback_query.data
+    if query.isdigit():
+        return show_new_orders(update, context, int(query))
+
+
 def handle_supply_choice(update: Update, context: CallbackContext):
     query = update.callback_query.data
     if query == 'new_orders':
@@ -136,7 +142,7 @@ def handle_users_reply(update: Update, context: CallbackContext, owner_id: int):
         'START': show_start_menu,
         'HANDLE_MAIN_MENU': handle_main_menu,
         'HANDLE_SUPPLIES_MENU': handle_supplies_menu,
-        'HANDLE_NEW_ORDERS': show_order_details,
+        'HANDLE_NEW_ORDERS': handle_new_orders,
         'HANDLE_SUPPLY': handle_supply,
         'HANDLE_ORDER': handle_order,
         'HANDLE_NEW_SUPPLY_NAME': handle_new_supply_name,

@@ -1,6 +1,7 @@
 from collections import Counter
 from datetime import datetime
 
+import more_itertools
 import pytz
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import CallbackContext
@@ -59,9 +60,33 @@ def show_supplies(update: Update, context: CallbackContext, only_active=True, li
     return 'HANDLE_SUPPLIES_MENU'
 
 
-def show_new_orders(update: Update, context: CallbackContext):
+def show_new_orders(update: Update, context: CallbackContext, page: int = 0):
     wb_api_client = WBApiClient()
+    keyboard_menu_buttons = [InlineKeyboardButton('Основное меню', callback_data='start')]
+    text = 'Новые заказы:\n(Артикул | Время с момента заказа)'
     new_orders = wb_api_client.get_new_orders()
+    if len(new_orders) > 10:
+        text = f'Новые заказы (стр. {page + 1}):\n(Артикул | Время с момента заказа)'
+        new_orders_chunks = list(more_itertools.chunked(new_orders, 10))
+        max_page = len(new_orders_chunks) - 1
+        page = min(max(0, page), max_page)
+        new_orders = new_orders_chunks[page]
+        if page > 0:
+            keyboard_menu_buttons.insert(
+                0,
+                InlineKeyboardButton(
+                    f'< стр {page} из {max_page + 1}',
+                    callback_data=page - 1
+                )
+            )
+        if page < max_page:
+            keyboard_menu_buttons.append(
+                InlineKeyboardButton(
+                    f'стр {page + 2} из {max_page + 1} >',
+                    callback_data=page + 1
+                )
+            )
+
     keyboard = [
         [InlineKeyboardButton(
             f'{order.article} | {convert_to_created_ago(order.created_at)}',
@@ -69,16 +94,14 @@ def show_new_orders(update: Update, context: CallbackContext):
         )]
         for order in new_orders
     ]
-    keyboard.append(
-        [InlineKeyboardButton('Основное меню', callback_data='start')]
-    )
+    keyboard.append(keyboard_menu_buttons)
     context.bot.delete_message(
         chat_id=update.effective_chat.id,
         message_id=update.effective_message.message_id
     )
     context.bot.send_message(
         chat_id=update.effective_chat.id,
-        text='Новые заказы:\n(Артикул | Время с момента заказа)',
+        text=text,
         reply_markup=InlineKeyboardMarkup(keyboard)
 
     )
