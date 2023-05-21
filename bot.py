@@ -137,11 +137,11 @@ def handle_users_reply(update: Update, context: CallbackContext, owner_id: int):
     else:
         user_state = db.client.get(chat_id).decode('utf-8')
 
-    if user_state not in ['HANDLE_NEW_SUPPLY_NAME']:
+    if user_state not in ['HANDLE_NEW_SUPPLY_NAME', 'START']:
         if update.message:
             context.bot.delete_message(
-                chat_id=update.effective_chat.id,
-                message_id=update.effective_message.message_id
+                chat_id=update.message.chat_id,
+                message_id=update.message.message_id
             )
             return
 
