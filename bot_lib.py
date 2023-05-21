@@ -172,12 +172,19 @@ def edit_supply(
         main_menu_button=MAIN_MENU_BUTTON,
         callback_data_prefix=f'{supply_id}_'
     )
+    keyboard.insert(
+        -1,
+        [InlineKeyboardButton(
+            'Вернуться к поставке',
+            callback_data=f'supply_{supply_id}'
+        )]
+    )
     if paginator.is_paginated:
         text = f'Заказы в поставке {supply_id} (стр. {page_number + 1}):\n' \
                f'Всего {paginator.items_count}шт\n' \
                f'(Артикул | Время с момента заказа)'
     else:
-        text = 'Заказы в поставке {supply_id}:\n' \
+        text = f'Заказы в поставке {supply_id}:\n' \
                f'Всего {paginator.items_count}шт\n' \
                '(Артикул | Время с момента заказа)'
 

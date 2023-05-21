@@ -111,6 +111,9 @@ def handle_edit_supply(update: Update, context: CallbackContext):
     if query.startswith('page_'):
         _, page = query.split('_', maxsplit=1)
         return show_new_orders(update, context, int(page))
+    elif query.startswith('supply_'):
+        _, supply_id = query.split('_', maxsplit=1)
+        return show_supply(update, context, supply_id)
     else:
         supply_id, order_id = query.split('_', maxsplit=1)
         return show_order_details(update, context, int(order_id), supply_id)
