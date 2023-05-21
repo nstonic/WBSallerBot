@@ -119,7 +119,7 @@ def handle_edit_supply(update: Update, context: CallbackContext):
 def handle_users_reply(update: Update, context: CallbackContext, owner_id: int):
     db = RedisClient()
 
-    if not update.effective_chat.id == owner_id:
+    if update.effective_chat.id not in owner_id:
         return
 
     if update.message:
@@ -178,7 +178,10 @@ def main():
         port=env('REDIS_PORT'),
         password=env('REDIS_PASSWORD')
     )
-    handle_users_reply_with_owner_id = partial(handle_users_reply, owner_id=env.int('OWNER_ID'))
+    handle_users_reply_with_owner_id = partial(
+        handle_users_reply,
+        owner_id=env.list('USER_IDS', subcast=int)
+    )
     token = env('TG_TOKEN')
     updater = Updater(token)
     dispatcher = updater.dispatcher
