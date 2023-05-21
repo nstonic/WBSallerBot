@@ -15,22 +15,25 @@ from reportlab.platypus.para import Paragraph
 from reportlab.platypus.tables import Table
 
 import config
-from wb_api.classes import Order, Product, OrderQRCode, SupplySticker
+from wb_api.classes import Order, Product, OrderQRCode
+from wb_api.client import WBApiClient
 
 
-def create_supply_sticker(supply_sticker: SupplySticker) -> bytes:
-    sticker_in_byte_format = b64decode(
-        supply_sticker.image_string,
+def get_supply_sticker(supply_id: str) -> bytes:
+    wb_api_client = WBApiClient()
+    supply_qr_code = wb_api_client.get_supply_qr_code(supply_id)
+    sticker_in_bytes = b64decode(
+        supply_qr_code.image_string,
         validate=True
     )
     image = Image.open(
         BytesIO(
-            sticker_in_byte_format
+            sticker_in_bytes
         )
     ).rotate(-90, expand=True)
-    image_to_sending = BytesIO()
-    image.save(image_to_sending, format='PNG')
-    return image_to_sending.getvalue()
+    supply_sticker = BytesIO()
+    image.save(supply_sticker, format='PNG')
+    return supply_sticker.getvalue()
 
 
 def get_orders_stickers(
@@ -43,7 +46,7 @@ def get_orders_stickers(
     sticker_files = []
     for article in articles:
         orders_with_same_article = [
-            order.order_id
+            order.id
             for order in orders
             if order.article == article
         ]

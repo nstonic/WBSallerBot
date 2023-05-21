@@ -1,7 +1,7 @@
 import time
 
 from requests import Response
-from requests.exceptions import ChunkedEncodingError
+from requests.exceptions import ChunkedEncodingError, JSONDecodeError
 
 
 class WBAPIError(Exception):
@@ -16,18 +16,23 @@ class WBAPIError(Exception):
 
 def check_response(response: Response):
     response.raise_for_status()
-    response_json = response.json()
-    if response_json.keys() == ('code', 'message'):
-        raise WBAPIError(
-            code=response_json['code'],
-            message=response_json['message'])
-    if response_json.get('error'):
-        raise WBAPIError(
-            message=f'{response_json["errorText"]}: {response_json["additionalErrors"]}')
+    try:
+        response_json = response.json()
+    except (AttributeError, JSONDecodeError):
+        return
+    else:
+        if response_json.keys() == ('code', 'message'):
+            raise WBAPIError(
+                code=response_json['code'],
+                message=response_json['message']
+            )
+        if response_json.get('error'):
+            raise WBAPIError(
+                message=f'{response_json["errorText"]}: {response_json["additionalErrors"]}'
+            )
 
 
 def retry_on_network_error(func):
-
     def wrapper(*args, **kwargs):
         delay = 0
         while True:

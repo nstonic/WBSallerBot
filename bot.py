@@ -36,12 +36,6 @@ tg_logger = logging.getLogger('TG_logger')
 
 
 def handle_main_menu(update: Update, context: CallbackContext):
-    if update.message:
-        context.bot.delete_message(
-            chat_id=update.effective_chat.id,
-            message_id=update.effective_message.message_id
-        )
-        return
     query = update.callback_query.data
     if query == 'show_supplies':
         return show_supplies(update, context)
@@ -50,29 +44,18 @@ def handle_main_menu(update: Update, context: CallbackContext):
 
 
 def handle_supplies_menu(update: Update, context: CallbackContext):
-    if update.message:
-        context.bot.delete_message(
-            chat_id=update.effective_chat.id,
-            message_id=update.effective_message.message_id
-        )
-        return
     query = update.callback_query.data
     if query.startswith('supply_'):
         _, supply_id = query.split('_', maxsplit=1)
         return show_supply(update, context, supply_id)
-    if query == 'more_supplies':
-        return show_supplies(update, context, only_active=False)
     if query == 'new_supply':
         return ask_for_supply_name(update, context)
+    if query.startswith('page_'):
+        _, page_number = query.split('_', maxsplit=2)
+        return show_supplies(update, context, page_number=int(page_number))
 
 
 def handle_supply(update: Update, context: CallbackContext):
-    if update.message:
-        context.bot.delete_message(
-            chat_id=update.effective_chat.id,
-            message_id=update.effective_message.message_id
-        )
-        return
     query = update.callback_query.data
     _, supply_id = query.split('_', maxsplit=1)
     if query.startswith('stickers_'):
@@ -83,18 +66,17 @@ def handle_supply(update: Update, context: CallbackContext):
         return delete_supply(update, context, supply_id)
     if query.startswith('edit_'):
         return edit_supply(update, context, supply_id)
+    if query.startswith('show_supplies'):
+        return show_supplies(update, context)
 
 
-def handle_new_order_details(update: Update, context: CallbackContext):
-    if update.message:
-        context.bot.delete_message(
-            chat_id=update.effective_chat.id,
-            message_id=update.effective_message.message_id
-        )
-        return
+def handle_order_details(update: Update, context: CallbackContext):
     query = update.callback_query.data
-    if query.startswith('add_'):
+    if query.startswith('add_to_supply_'):
         return ask_to_choose_supply(update, context)
+    if query.startswith('supply_'):
+        _, supply_id = query.split('_', maxsplit=1)
+        return show_supply(update, context, supply_id)
     if query == 'new_orders':
         return show_new_orders(update, context)
 
@@ -107,51 +89,31 @@ def handle_new_supply_name(update: Update, context: CallbackContext):
 
 
 def handle_new_orders(update: Update, context: CallbackContext):
-    if update.message:
-        context.bot.delete_message(
-            chat_id=update.effective_chat.id,
-            message_id=update.effective_message.message_id
-        )
-        return
     query = update.callback_query.data
     if query.startswith('page_'):
         _, page = query.split('_', maxsplit=1)
         return show_new_orders(update, context, int(page))
     else:
-        return show_new_order_details(update, context)
+        order_id = int(update.callback_query.data)
+        return show_new_order_details(update, context, order_id)
 
 
 def handle_supply_choice(update: Update, context: CallbackContext):
-    if update.message:
-        context.bot.delete_message(
-            chat_id=update.effective_chat.id,
-            message_id=update.effective_message.message_id
-        )
-        return
     query = update.callback_query.data
-    if query == 'new_orders':
-        return show_new_orders(update, context)
     if query == 'new_supply':
         return ask_for_supply_name(update, context)
-    if query == 'add_':
+    else:
         return add_order_to_supply(update, context)
 
 
 def handle_edit_supply(update: Update, context: CallbackContext):
-    if update.message:
-        context.bot.delete_message(
-            chat_id=update.effective_chat.id,
-            message_id=update.effective_message.message_id
-        )
-        return
     query = update.callback_query.data
-    if query.startswith('supply_'):
-        supply_part, page_part = query.split('__', maxsplit=1)
-        _, page = page_part.split('_', maxsplit=1)
-        _, supply_id = supply_part.split('_', maxsplit=1)
-        return edit_supply(update, context, supply_id, int(page))
+    if query.startswith('page_'):
+        _, page = query.split('_', maxsplit=1)
+        return show_new_orders(update, context, int(page))
     else:
-        return show_order_details(update, context)
+        supply_id, order_id = query.split('_', maxsplit=1)
+        return show_order_details(update, context, int(order_id), supply_id)
 
 
 def handle_users_reply(update: Update, context: CallbackContext, owner_id: int):
@@ -174,13 +136,22 @@ def handle_users_reply(update: Update, context: CallbackContext, owner_id: int):
         db.client.set(chat_id, user_state)
     else:
         user_state = db.client.get(chat_id).decode('utf-8')
+
+    if user_state not in ['HANDLE_NEW_SUPPLY_NAME']:
+        if update.message:
+            context.bot.delete_message(
+                chat_id=update.effective_chat.id,
+                message_id=update.effective_message.message_id
+            )
+            return
+
     state_functions = {
         'START': show_start_menu,
         'HANDLE_MAIN_MENU': handle_main_menu,
         'HANDLE_SUPPLIES_MENU': handle_supplies_menu,
         'HANDLE_NEW_ORDERS': handle_new_orders,
         'HANDLE_SUPPLY': handle_supply,
-        'HANDLE_NEW_ORDER_DETAILS': handle_new_order_details,
+        'HANDLE_ORDER_DETAILS': handle_order_details,
         'HANDLE_NEW_SUPPLY_NAME': handle_new_supply_name,
         'HANDLE_SUPPLY_CHOICE': handle_supply_choice,
         'HANDLE_EDIT_SUPPLY': handle_edit_supply

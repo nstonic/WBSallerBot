@@ -3,7 +3,7 @@ from typing import Iterable, Generator
 import more_itertools
 import requests
 
-from .classes import Supply, Order, Product, OrderQRCode, SupplySticker
+from .classes import Supply, Order, Product, OrderQRCode, SupplyQRCode
 from .errors import check_response, retry_on_network_error, WBAPIError
 
 
@@ -27,6 +27,15 @@ class WBApiClient:
         )
         check_response(response)
         return [Order.parse_obj(order) for order in response.json()['orders']]
+
+    @retry_on_network_error
+    def get_supply(self, supply_id: str) -> Supply:
+        response = requests.get(
+            f'https://suppliers-api.wildberries.ru/api/v3/supplies/{supply_id}',
+            headers=self._headers
+        )
+        check_response(response)
+        return Supply.parse_obj(response.json())
 
     @retry_on_network_error
     def get_product(self, article: str) -> Product:
@@ -86,12 +95,12 @@ class WBApiClient:
                 yield product_card
 
     @retry_on_network_error
-    def get_supplies(self, only_active: bool = True, limit: int = 50) -> list[Supply]:
+    def get_supplies(self, only_active: bool = True, quantity: int = 50) -> list[Supply]:
         params = {
             'limit': 1000,
             'next': 0
         }
-
+        all_supply_objects = []
         while True:  # Находим последнюю страницу с поставками
             response = requests.get(
                 'https://suppliers-api.wildberries.ru/api/v3/supplies',
@@ -99,18 +108,22 @@ class WBApiClient:
                 params=params
             )
             check_response(response)
-            if response.json()['supplies'] == params['limit']:
+            supply_objects = response.json()['supplies']
+            if not supply_objects:
+                break
+            all_supply_objects.extend(supply_objects)
+            if len(supply_objects) == params['limit']:
                 params['next'] = response.json()['next']
                 continue
             else:
                 break
 
         supplies = []
-        for supply in response.json()["supplies"][::-1]:
+        for supply in all_supply_objects[::-1]:
             if not supply['done'] or only_active is False:
                 supply = Supply.parse_obj(supply)
                 supplies.append(supply)
-            if len(supplies) == limit:
+            if len(supplies) == quantity:
                 break
         return supplies
 
@@ -142,7 +155,7 @@ class WBApiClient:
         return response.status_code
 
     @retry_on_network_error
-    def get_supply_sticker(self, supply_id: str) -> SupplySticker:
+    def get_supply_qr_code(self, supply_id: str) -> SupplyQRCode:
         response = requests.get(
             f'https://suppliers-api.wildberries.ru/api/v3/supplies/{supply_id}/barcode',
             headers=self._headers,
@@ -153,7 +166,7 @@ class WBApiClient:
             }
         )
         check_response(response)
-        return SupplySticker.parse_obj(response.json())
+        return SupplyQRCode.parse_obj(response.json())
 
     @retry_on_network_error
     def get_new_orders(self) -> list[Order]:
@@ -202,9 +215,7 @@ class WBApiClient:
             f'https://suppliers-api.wildberries.ru/api/v3/supplies/{supply_id}/orders/{order_id}',
             headers=self._headers
         )
-        if status_code := response.status_code != 204:
-            raise (WBAPIError(f'Статус запроса: {status_code}'))
-        response.raise_for_status()
+        check_response(response)
         return response.status_code
 
     @retry_on_network_error
