@@ -275,7 +275,7 @@ def show_new_order_details(update: Update, context: CallbackContext, order_id: i
         current_order,
         back_button
     )
-    return 'HANDLE_NEW_ORDER_DETAILS'
+    return 'HANDLE_ORDER_DETAILS'
 
 
 def send_stickers(update: Update, context: CallbackContext, supply_id: str):
