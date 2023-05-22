@@ -59,7 +59,7 @@ def show_supplies(
 ):
     wb_api_client = WBApiClient()
     supplies = wb_api_client.get_supplies(only_active=False, quantity=quantity)
-    sorted_orders = sorted(supplies, key=lambda s: s.created_at)
+    sorted_orders = sorted(supplies, key=lambda s: s.created_at, reverse=True)
     paginator = Paginator(sorted_orders, page_size)
     keyboard = paginator.get_keyboard(
         page_number=page_number,
