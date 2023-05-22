@@ -6,15 +6,7 @@ from pydantic import BaseModel, Field
 from utils import convert_to_created_ago
 
 
-class ButtonMixin:
-    def get_callback_data(self):
-        return self.id
-
-    def get_button_text(self):
-        return self.__str__()
-
-
-class Supply(BaseModel, ButtonMixin):
+class Supply(BaseModel):
     id: str
     name: str
     closed_at: datetime.datetime = Field(alias='closedAt', default=None)
@@ -24,12 +16,15 @@ class Supply(BaseModel, ButtonMixin):
     def to_tuple(self):
         return self.id, self.name, self.closed_at, self.created_at, self.is_done
 
+    def get_callback_data(self):
+        return self.id
+
     def get_button_text(self):
         is_done = {0: 'Открыта', 1: 'Закрыта'}
         return f'{self.name} | {self.id} | {is_done[self.is_done]}'
 
 
-class Order(BaseModel, ButtonMixin):
+class Order(BaseModel):
     id: int
     supply_id: str = Field(alias='supplyId', default='Не закреплён за поставкой')
     converted_price: int = Field(alias='convertedPrice')
