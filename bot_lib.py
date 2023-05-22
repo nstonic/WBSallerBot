@@ -6,7 +6,6 @@ from telegram.ext import CallbackContext
 from stickers import get_supply_sticker, get_orders_stickers
 from paginator import Paginator
 from utils import convert_to_created_ago
-from wb_api.classes import Order
 from wb_api.client import WBApiClient
 from redis_client import RedisClient
 
@@ -18,9 +17,9 @@ def answer_to_user(
         context: CallbackContext,
         text: str,
         keyboard: list[list[InlineKeyboardButton]],
-        add_main_menu_button: bool = True
+        add_main_menu_button: bool = True,
+        parse_mode: str = 'HTML'
 ):
-    user_id = update.effective_chat.id
     if add_main_menu_button:
         keyboard.append([_MAIN_MENU_BUTTON])
     context.bot.delete_message(
@@ -28,10 +27,10 @@ def answer_to_user(
         message_id=update.effective_message.message_id
     )
     return context.bot.send_message(
-        chat_id=user_id,
+        chat_id=update.effective_chat.id,
         text=text,
         reply_markup=InlineKeyboardMarkup(keyboard),
-        parse_mode='HTML'
+        parse_mode=parse_mode
     )
 
 
@@ -52,9 +51,9 @@ def show_start_menu(update: Update, context: CallbackContext):
 
 
 def show_supplies(
-        update: Update, context:
-        CallbackContext,
-        quantity=50,
+        update: Update,
+        context: CallbackContext,
+        quantity: int = 50,
         page_number: int = 0,
         page_size: int = 10
 ):
@@ -193,29 +192,6 @@ def edit_supply(
     return 'HANDLE_EDIT_SUPPLY'
 
 
-def send_message_with_order_details(
-        update: Update,
-        context: CallbackContext,
-        order: Order,
-        back_button: InlineKeyboardButton
-):
-    keyboard = [
-        [InlineKeyboardButton('Перенести в поставку', callback_data=f'add_to_supply_{order.id}')],
-        [back_button]
-    ]
-    text = f'Номер заказа: <b>{order.id}</b>\n' \
-           f'Артикул: <b>{order.article}</b>\n' \
-           f'Поставка: <b>{order.supply_id}</b>\n' \
-           f'Время с момента заказа: <b>{convert_to_created_ago(order.created_at)}</b>\n' \
-           f'Цена: <b>{order.converted_price / 100} ₽</b>'
-    answer_to_user(
-        update,
-        context,
-        text,
-        keyboard
-    )
-
-
 def show_order_details(
         update: Update,
         context: CallbackContext,
@@ -225,7 +201,7 @@ def show_order_details(
     wb_api_client = WBApiClient()
     context.bot.answer_callback_query(
         update.callback_query.id,
-        f'Загружает информация по заказу {order_id}'
+        f'Информация по заказу {order_id}'
     )
     orders = wb_api_client.get_supply_orders(supply_id)
     for order in orders:
@@ -312,18 +288,6 @@ def send_stickers(update: Update, context: CallbackContext, supply_id: str):
     )
 
 
-def close_supply(update: Update, context: CallbackContext, supply_id: str):
-    wb_api_client = WBApiClient()
-    wb_api_client.send_supply_to_deliver(supply_id)
-    context.bot.answer_callback_query(update.callback_query.id, 'Отправлено в доставку')
-    supply_sticker = get_supply_sticker(supply_id)
-    context.bot.send_photo(
-        chat_id=update.effective_chat.id,
-        photo=supply_sticker
-    )
-    return show_supplies(update, context)
-
-
 def ask_to_choose_supply(update: Update, context: CallbackContext):
     wb_api_client = WBApiClient()
     active_supplies = wb_api_client.get_supplies()
@@ -376,11 +340,13 @@ def create_new_supply(update: Update, context: CallbackContext):
     redis = RedisClient()
     new_supply_name = update.message.text
     wb_api_client.create_new_supply(new_supply_name)
-    message_to_delete = redis.client.get(f'message_{update.effective_message.from_user.id}')
+    message_to_delete = redis.client.get(
+        f'message_{update.effective_message.from_user.id}'
+    ).decode('utf-8')
     if message_to_delete:
         context.bot.delete_message(
             chat_id=update.effective_chat.id,
-            message_id=message_to_delete.decode('utf-8')
+            message_id=message_to_delete
         )
     update.message = None
     return show_supplies(update, context)
@@ -392,5 +358,20 @@ def delete_supply(update, context, supply_id: str):
     context.bot.answer_callback_query(
         update.callback_query.id,
         'Поставка удалена'
+    )
+    return show_supplies(update, context)
+
+
+def close_supply(update: Update, context: CallbackContext, supply_id: str):
+    wb_api_client = WBApiClient()
+    wb_api_client.send_supply_to_deliver(supply_id)
+    context.bot.answer_callback_query(
+        update.callback_query.id,
+        'Отправлено в доставку'
+    )
+    supply_sticker = get_supply_sticker(supply_id)
+    context.bot.send_photo(
+        chat_id=update.effective_chat.id,
+        photo=supply_sticker
     )
     return show_supplies(update, context)
