@@ -15,13 +15,10 @@ from reportlab.platypus.para import Paragraph
 from reportlab.platypus.tables import Table
 
 import config
-from wb_api.classes import Order, Product, OrderQRCode
-from wb_api.client import WBApiClient
+from wb_api.classes import Order, Product, OrderQRCode, SupplyQRCode
 
 
-def get_supply_sticker(supply_id: str) -> bytes:
-    wb_api_client = WBApiClient()
-    supply_qr_code = wb_api_client.get_supply_qr_code(supply_id)
+def get_supply_sticker(supply_qr_code: SupplyQRCode) -> bytes:
     sticker_in_bytes = b64decode(
         supply_qr_code.image_string,
         validate=True
