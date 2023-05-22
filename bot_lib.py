@@ -59,7 +59,8 @@ def show_supplies(
 ):
     wb_api_client = WBApiClient()
     supplies = wb_api_client.get_supplies(only_active=False, quantity=quantity)
-    paginator = Paginator(supplies, page_size)
+    sorted_orders = sorted(supplies, key=lambda s: s.created_at)
+    paginator = Paginator(sorted_orders, page_size)
     keyboard = paginator.get_keyboard(
         page_number=page_number,
         callback_data_prefix='supply_',
@@ -90,7 +91,8 @@ def show_new_orders(
 ):
     wb_api_client = WBApiClient()
     new_orders = wb_api_client.get_new_orders()
-    paginator = Paginator(new_orders, page_size)
+    sorted_orders = sorted(new_orders, key=lambda o: o.created_at)
+    paginator = Paginator(sorted_orders, page_size)
     keyboard = paginator.get_keyboard(
         page_number=page_number,
         main_menu_button=_MAIN_MENU_BUTTON,
@@ -161,8 +163,10 @@ def edit_supply(
         page_size: int = 10
 ):
     wb_api_client = WBApiClient()
+    orders = wb_api_client.get_supply_orders(supply_id)
+    sorted_orders = sorted(orders, key=lambda o: o.created_at)
     paginator = Paginator(
-        item_list=wb_api_client.get_supply_orders(supply_id),
+        item_list=sorted_orders,
         page_size=page_size
     )
     keyboard = paginator.get_keyboard(
