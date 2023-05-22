@@ -1,6 +1,7 @@
 from collections import Counter
+from contextlib import suppress
 
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, TelegramError
 from telegram.ext import CallbackContext
 
 from stickers import get_supply_sticker, get_orders_stickers
@@ -22,16 +23,27 @@ def answer_to_user(
 ):
     if add_main_menu_button:
         keyboard.append([_MAIN_MENU_BUTTON])
-    context.bot.delete_message(
-        chat_id=update.effective_chat.id,
-        message_id=update.effective_message.message_id
-    )
-    return context.bot.send_message(
-        chat_id=update.effective_chat.id,
-        text=text,
-        reply_markup=InlineKeyboardMarkup(keyboard),
-        parse_mode=parse_mode
-    )
+
+    try:
+        return context.bot.edit_message_text(
+            chat_id=update.effective_chat.id,
+            message_id=update.effective_message.message_id,
+            text=text,
+            reply_markup=InlineKeyboardMarkup(keyboard),
+            parse_mode=parse_mode
+        )
+    except TelegramError:
+        with suppress(TelegramError):
+            context.bot.delete_message(
+                chat_id=update.effective_chat.id,
+                message_id=update.effective_message.message_id
+            )
+        return context.bot.send_message(
+            chat_id=update.effective_chat.id,
+            text=text,
+            reply_markup=InlineKeyboardMarkup(keyboard),
+            parse_mode=parse_mode
+        )
 
 
 def show_start_menu(update: Update, context: CallbackContext):
@@ -356,11 +368,7 @@ def create_new_supply(update: Update, context: CallbackContext):
     wb_api_client = WBApiClient()
     redis = RedisClient()
     new_supply_name = update.message.text
-    supply_id = wb_api_client.create_new_supply(new_supply_name)
-    context.bot.answer_callback_query(
-        update.callback_query.id,
-        f'Создана поставка {supply_id}'
-    )
+    wb_api_client.create_new_supply(new_supply_name)
     message_to_delete = redis.client.get(
         f'message_{update.effective_message.from_user.id}'
     ).decode('utf-8')
