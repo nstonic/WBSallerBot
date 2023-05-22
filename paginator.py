@@ -17,6 +17,7 @@ class Paginator:
             self,
             page_number: int = 0,
             callback_data_prefix: str = '',
+            page_callback_data_postfix: str = '',
             main_menu_button: InlineKeyboardButton = None
     ) -> list[list[InlineKeyboardButton]]:
         page_number = min(max(0, page_number), self.total_pages)
@@ -26,14 +27,14 @@ class Paginator:
                 0,
                 InlineKeyboardButton(
                     f'< {page_number}/{self.total_pages}',
-                    callback_data=f'page_{page_number - 1}'
+                    callback_data=f'page_{page_number - 1}{page_callback_data_postfix}'
                 )
             )
         if page_number < self.max_page_number:
             keyboard_menu_buttons.append(
                 InlineKeyboardButton(
                     f'{page_number + 2}/{self.total_pages} >',
-                    callback_data=f'page_{page_number + 1}'
+                    callback_data=f'page_{page_number + 1}{page_callback_data_postfix}'
                 )
             )
         keyboard = [

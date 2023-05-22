@@ -26,7 +26,7 @@ class Supply(BaseModel):
 
 class Order(BaseModel):
     id: int
-    supply_id: str = Field(alias='supplyId', default='Не закреплён за поставкой')
+    supply_id: str = Field(alias='supplyId', default='')
     converted_price: int = Field(alias='convertedPrice')
     article: str
     created_at: datetime.datetime = Field(alias='createdAt')
@@ -41,8 +41,8 @@ class Order(BaseModel):
 class OrderQRCode(BaseModel):
     order_id: int = Field(alias='orderId')
     file: str
-    partA: str
-    partB: str
+    part_a: str = Field(alias='partA')
+    part_b: str = Field(alias='partB')
 
 
 class SupplyQRCode(BaseModel):

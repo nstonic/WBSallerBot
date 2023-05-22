@@ -168,6 +168,7 @@ def edit_supply(
     keyboard = paginator.get_keyboard(
         page_number=page_number,
         callback_data_prefix=f'{supply_id}_',
+        page_callback_data_postfix=f' supply_{supply_id}',
         main_menu_button=_MAIN_MENU_BUTTON
     )
     keyboard.insert(
@@ -211,13 +212,17 @@ def show_order_details(
     else:
         return
 
+    order_qr_code, *_ = wb_api_client.get_qr_codes_for_orders([current_order.id])
+
     keyboard = [
         [InlineKeyboardButton('Перенести в поставку', callback_data=f'add_to_supply_{order.id}')],
         [InlineKeyboardButton('Вернуться к поставке', callback_data=f'supply_{supply_id}')]
     ]
+
     text = f'Номер заказа: <b>{current_order.id}</b>\n' \
+           f'Стикер: <b>{order_qr_code.part_a} {order_qr_code.part_b}</b>\n' \
            f'Артикул: <b>{current_order.article}</b>\n' \
-           f'Поставка: <b>{current_order.supply_id}</b>\n' \
+           f'Поставка: <b>{supply_id}</b>\n' \
            f'Время с момента заказа: <b>{convert_to_created_ago(current_order.created_at)}</b>\n' \
            f'Цена: <b>{current_order.converted_price / 100} ₽</b>'
 
@@ -243,14 +248,13 @@ def show_new_order_details(update: Update, context: CallbackContext, order_id: i
         update.callback_query.id,
         f'Информация по заказу {current_order.id}'
     )
-
     keyboard = [
         [InlineKeyboardButton('Перенести в поставку', callback_data=f'add_to_supply_{order.id}')],
         [InlineKeyboardButton('Вернуться к списку заказов', callback_data=f'new_orders')]
     ]
+
     text = f'Номер заказа: <b>{current_order.id}</b>\n' \
            f'Артикул: <b>{current_order.article}</b>\n' \
-           f'Поставка: <b>{current_order.supply_id}</b>\n' \
            f'Время с момента заказа: <b>{convert_to_created_ago(current_order.created_at)}</b>\n' \
            f'Цена: <b>{current_order.converted_price / 100} ₽</b>'
 
