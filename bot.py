@@ -27,7 +27,7 @@ from bot_lib import (
     create_new_supply,
     delete_supply,
     edit_supply,
-    show_order_details
+    show_order_details, get_confirmation_to_close_supply
 )
 from logger import TGLoggerHandler
 from redis_client import RedisClient
@@ -61,12 +61,21 @@ def handle_supply(update: Update, context: CallbackContext):
     if query.startswith('stickers_'):
         return send_stickers(update, context, supply_id)
     if query.startswith('close_'):
-        return close_supply(update, context, supply_id)
+        return get_confirmation_to_close_supply(update, context, supply_id)
     if query.startswith('delete_'):
         return delete_supply(update, context, supply_id)
     if query.startswith('edit_'):
         return edit_supply(update, context, supply_id)
     if query.startswith('show_supplies'):
+        return show_supplies(update, context)
+
+
+def handle_confirmation_to_close_supply(update: Update, context: CallbackContext):
+    query = update.callback_query.data
+    if query.startswith('yes_'):
+        supply_id = query.replace('yes_', '')
+        return close_supply(update, context, supply_id)
+    if query == 'no':
         return show_supplies(update, context)
 
 
@@ -159,7 +168,8 @@ def handle_users_reply(update: Update, context: CallbackContext, user_ids: int):
         'HANDLE_ORDER_DETAILS': handle_order_details,
         'HANDLE_NEW_SUPPLY_NAME': handle_new_supply_name,
         'HANDLE_SUPPLY_CHOICE': handle_supply_choice,
-        'HANDLE_EDIT_SUPPLY': handle_edit_supply
+        'HANDLE_EDIT_SUPPLY': handle_edit_supply,
+        'HANDLE_CONFIRMATION_TO_CLOSE_SUPPLY': handle_confirmation_to_close_supply
     }
 
     state_handler = state_functions.get(user_state, show_start_menu)
