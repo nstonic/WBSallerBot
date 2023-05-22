@@ -109,8 +109,10 @@ def handle_supply_choice(update: Update, context: CallbackContext):
 def handle_edit_supply(update: Update, context: CallbackContext):
     query = update.callback_query.data
     if query.startswith('page_'):
-        _, page = query.split('_', maxsplit=1)
-        return show_new_orders(update, context, int(page))
+        page_callback_data, supply_callback_data = query.split(' ', maxsplit=1)
+        page = page_callback_data.replace('page_', '')
+        supply_id = supply_callback_data.replace('supply_', '')
+        return edit_supply(update, context, supply_id=supply_id, page_number=int(page))
     elif query.startswith('supply_'):
         _, supply_id = query.split('_', maxsplit=1)
         return show_supply(update, context, supply_id)
@@ -119,10 +121,10 @@ def handle_edit_supply(update: Update, context: CallbackContext):
         return show_order_details(update, context, int(order_id), supply_id)
 
 
-def handle_users_reply(update: Update, context: CallbackContext, owner_id: int):
+def handle_users_reply(update: Update, context: CallbackContext, user_ids: int):
     db = RedisClient()
 
-    if update.effective_chat.id not in owner_id:
+    if update.effective_chat.id not in user_ids:
         return
 
     if update.message:
@@ -183,7 +185,7 @@ def main():
     )
     handle_users_reply_with_owner_id = partial(
         handle_users_reply,
-        owner_id=env.list('USER_IDS', subcast=int)
+        user_ids=env.list('USER_IDS', subcast=int)
     )
     token = env('TG_TOKEN')
     updater = Updater(token)
