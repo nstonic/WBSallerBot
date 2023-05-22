@@ -15,12 +15,12 @@ class Paginator:
 
     def get_keyboard(
             self,
-            main_menu_button: InlineKeyboardButton,
             page_number: int = 0,
-            callback_data_prefix: str = ''
+            callback_data_prefix: str = '',
+            main_menu_button: InlineKeyboardButton = None
     ) -> list[list[InlineKeyboardButton]]:
         page_number = min(max(0, page_number), self.total_pages)
-        keyboard_menu_buttons = [main_menu_button]
+        keyboard_menu_buttons = [main_menu_button] if main_menu_button else []
         if self.max_page_number >= page_number > 0:
             keyboard_menu_buttons.insert(
                 0,
