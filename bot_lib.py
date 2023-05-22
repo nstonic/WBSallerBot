@@ -1,6 +1,4 @@
 from collections import Counter
-from datetime import datetime
-from functools import partial
 
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import CallbackContext
@@ -16,20 +14,40 @@ from redis_client import RedisClient
 MAIN_MENU_BUTTON = InlineKeyboardButton('Основное меню', callback_data='start')
 
 
-def show_start_menu(update: Update, context: CallbackContext):
+def answer_to_user(
+        update: Update,
+        context: CallbackContext,
+        text: str,
+        keyboard: list[list[InlineKeyboardButton]],
+        add_main_menu_button: bool = True
+):
     user_id = update.effective_chat.id
-    keyboard = [
-        [InlineKeyboardButton('Показать поставки', callback_data='show_supplies')],
-        [InlineKeyboardButton('Новые заказы', callback_data='new_orders')]
-    ]
+    if add_main_menu_button:
+        keyboard.append([MAIN_MENU_BUTTON])
     context.bot.delete_message(
         chat_id=update.effective_chat.id,
         message_id=update.effective_message.message_id
     )
-    context.bot.send_message(
+    return context.bot.send_message(
         chat_id=user_id,
-        text='Основное меню',
-        reply_markup=InlineKeyboardMarkup(keyboard)
+        text=text,
+        reply_markup=InlineKeyboardMarkup(keyboard),
+        parse_mode='HTML'
+    )
+
+
+def show_start_menu(update: Update, context: CallbackContext):
+    text = 'Основное меню'
+    keyboard = [
+        [InlineKeyboardButton('Показать поставки', callback_data='show_supplies')],
+        [InlineKeyboardButton('Новые заказы', callback_data='new_orders')]
+    ]
+    answer_to_user(
+        update,
+        context,
+        text,
+        keyboard,
+        add_main_menu_button=False
     )
     return 'HANDLE_MAIN_MENU'
 
@@ -46,28 +64,22 @@ def show_supplies(
     paginator = Paginator(supplies, page_size)
     keyboard = paginator.get_keyboard(
         page_number=page_number,
-        main_menu_button=MAIN_MENU_BUTTON,
-        callback_data_prefix='supply_'
+        callback_data_prefix='supply_',
+        main_menu_button=MAIN_MENU_BUTTON
     )
+    text = 'Список поставок'
     if paginator.is_paginated:
-        text = 'Список поставок\n' \
-               f'(стр. {page_number + 1})'
-    else:
-        text = 'Список поставок\n'
-
+        text = f'{text}\n(стр. {page_number + 1})'
     keyboard.insert(
         -1,
         [InlineKeyboardButton('Создать новую поставку', callback_data='new_supply')]
     )
-    if update.effective_message:
-        context.bot.delete_message(
-            chat_id=update.effective_chat.id,
-            message_id=update.effective_message.message_id
-        )
-    context.bot.send_message(
-        chat_id=update.effective_chat.id,
-        text=text,
-        reply_markup=InlineKeyboardMarkup(keyboard)
+    answer_to_user(
+        update,
+        context,
+        text,
+        keyboard,
+        add_main_menu_button=False
     )
     return 'HANDLE_SUPPLIES_MENU'
 
@@ -80,32 +92,24 @@ def show_new_orders(
 ):
     wb_api_client = WBApiClient()
     new_orders = wb_api_client.get_new_orders()
+    paginator = Paginator(new_orders, page_size)
+    keyboard = paginator.get_keyboard(
+        page_number=page_number,
+        main_menu_button=MAIN_MENU_BUTTON,
+    )
     if new_orders:
-        paginator = Paginator(new_orders, page_size)
-        keyboard = paginator.get_keyboard(
-            page_number=page_number,
-            main_menu_button=MAIN_MENU_BUTTON
-        )
-        if paginator.is_paginated:
-            text = f'Новые заказы (стр. {page_number + 1}):\n' \
-                   f'Всего {paginator.items_count}шт\n' \
-                   f'(Артикул | Время с момента заказа)'
-        else:
-            text = 'Новые заказы:\n' \
-                   f'Всего {paginator.items_count}шт\n' \
-                   '(Артикул | Время с момента заказа)'
+        page_info = f' (стр. {page_number + 1})' if paginator.is_paginated else ''
+        text = f'Новые заказы{page_info}:\n' \
+               f'Всего {paginator.items_count}шт\n' \
+               f'(Артикул | Время с момента заказа)'
     else:
         text = 'Нет новых заказов'
-        keyboard = [MAIN_MENU_BUTTON]
-
-    context.bot.delete_message(
-        chat_id=update.effective_chat.id,
-        message_id=update.effective_message.message_id
-    )
-    context.bot.send_message(
-        chat_id=update.effective_chat.id,
-        text=text,
-        reply_markup=InlineKeyboardMarkup(keyboard)
+    answer_to_user(
+        update,
+        context,
+        text,
+        keyboard,
+        add_main_menu_button=False
     )
     return 'HANDLE_NEW_ORDERS'
 
@@ -139,18 +143,14 @@ def show_supply(update: Update, context: CallbackContext, supply_id: str):
         ]
         text = f'В поставке нет заказов'
 
-    keyboard.extend([
-        [InlineKeyboardButton('Назад к списку поставок', callback_data='show_supplies')],
-        [MAIN_MENU_BUTTON]
-    ])
-    context.bot.delete_message(
-        chat_id=update.effective_chat.id,
-        message_id=update.effective_message.message_id
+    keyboard.append(
+        [InlineKeyboardButton('Назад к списку поставок', callback_data='show_supplies')]
     )
-    context.bot.send_message(
-        chat_id=update.effective_chat.id,
-        text=text,
-        reply_markup=InlineKeyboardMarkup(keyboard)
+    answer_to_user(
+        update,
+        context,
+        text,
+        keyboard
     )
     return 'HANDLE_SUPPLY'
 
@@ -169,8 +169,8 @@ def edit_supply(
     )
     keyboard = paginator.get_keyboard(
         page_number=page_number,
-        main_menu_button=MAIN_MENU_BUTTON,
-        callback_data_prefix=f'{supply_id}_'
+        callback_data_prefix=f'{supply_id}_',
+        main_menu_button=MAIN_MENU_BUTTON
     )
     keyboard.insert(
         -1,
@@ -179,23 +179,17 @@ def edit_supply(
             callback_data=f'supply_{supply_id}'
         )]
     )
-    if paginator.is_paginated:
-        text = f'Заказы в поставке {supply_id} (стр. {page_number + 1}):\n' \
-               f'Всего {paginator.items_count}шт\n' \
-               f'(Артикул | Время с момента заказа)'
-    else:
-        text = f'Заказы в поставке {supply_id}:\n' \
-               f'Всего {paginator.items_count}шт\n' \
-               '(Артикул | Время с момента заказа)'
+    page_info = f' (стр. {page_number + 1})' if paginator.is_paginated else ''
+    text = f'Заказы в поставке {supply_id}{page_info}:\n' \
+           f'Всего {paginator.items_count}шт\n' \
+           f'(Артикул | Время с момента заказа)'
 
-    context.bot.delete_message(
-        chat_id=update.effective_chat.id,
-        message_id=update.effective_message.message_id
-    )
-    context.bot.send_message(
-        chat_id=update.effective_chat.id,
-        text=text,
-        reply_markup=InlineKeyboardMarkup(keyboard)
+    answer_to_user(
+        update,
+        context,
+        text,
+        keyboard,
+        add_main_menu_button=False
     )
     return 'HANDLE_EDIT_SUPPLY'
 
@@ -208,22 +202,18 @@ def send_message_with_order_details(
 ):
     keyboard = [
         [InlineKeyboardButton('Перенести в поставку', callback_data=f'add_to_supply_{order.id}')],
-        [back_button],
-        [MAIN_MENU_BUTTON]
+        [back_button]
     ]
-    context.bot.delete_message(
-        chat_id=update.effective_chat.id,
-        message_id=update.effective_message.message_id
-    )
-    context.bot.send_message(
-        chat_id=update.effective_chat.id,
-        text=f'Номер заказа: <b>{order.id}</b>\n'
-             f'Артикул: <b>{order.article}</b>\n'
-             f'Поставка: <b>{order.supply_id}</b>\n'
-             f'Время с момента заказа: <b>{convert_to_created_ago(order.created_at)}</b>\n'
-             f'Цена: <b>{order.converted_price / 100} ₽</b>\n',
-        reply_markup=InlineKeyboardMarkup(keyboard),
-        parse_mode='HTML'
+    text = f'Номер заказа: <b>{order.id}</b>\n' \
+           f'Артикул: <b>{order.article}</b>\n' \
+           f'Поставка: <b>{order.supply_id}</b>\n' \
+           f'Время с момента заказа: <b>{convert_to_created_ago(order.created_at)}</b>\n' \
+           f'Цена: <b>{order.converted_price / 100} ₽</b>'
+    answer_to_user(
+        update,
+        context,
+        text,
+        keyboard
     )
 
 
@@ -246,15 +236,21 @@ def show_order_details(
     else:
         return
 
-    back_button = InlineKeyboardButton(
-        'Вернуться к поставке',
-        callback_data=f'supply_{supply_id}'
-    )
-    send_message_with_order_details(
+    keyboard = [
+        [InlineKeyboardButton('Перенести в поставку', callback_data=f'add_to_supply_{order.id}')],
+        [InlineKeyboardButton('Вернуться к поставке', callback_data=f'supply_{supply_id}')]
+    ]
+    text = f'Номер заказа: <b>{current_order.id}</b>\n' \
+           f'Артикул: <b>{current_order.article}</b>\n' \
+           f'Поставка: <b>{current_order.supply_id}</b>\n' \
+           f'Время с момента заказа: <b>{convert_to_created_ago(current_order.created_at)}</b>\n' \
+           f'Цена: <b>{current_order.converted_price / 100} ₽</b>'
+
+    answer_to_user(
         update,
         context,
-        current_order,
-        back_button
+        text,
+        keyboard
     )
     return 'HANDLE_ORDER_DETAILS'
 
@@ -272,15 +268,22 @@ def show_new_order_details(update: Update, context: CallbackContext, order_id: i
         update.callback_query.id,
         f'Информация по заказу {current_order.id}'
     )
-    back_button = InlineKeyboardButton(
-        'Вернуться к списку заказов',
-        callback_data=f'new_orders'
-    )
-    send_message_with_order_details(
+
+    keyboard = [
+        [InlineKeyboardButton('Перенести в поставку', callback_data=f'add_to_supply_{order.id}')],
+        [InlineKeyboardButton('Вернуться к списку заказов', callback_data=f'new_orders')]
+    ]
+    text = f'Номер заказа: <b>{current_order.id}</b>\n' \
+           f'Артикул: <b>{current_order.article}</b>\n' \
+           f'Поставка: <b>{current_order.supply_id}</b>\n' \
+           f'Время с момента заказа: <b>{convert_to_created_ago(current_order.created_at)}</b>\n' \
+           f'Цена: <b>{current_order.converted_price / 100} ₽</b>'
+
+    answer_to_user(
         update,
         context,
-        current_order,
-        back_button
+        text,
+        keyboard
     )
     return 'HANDLE_ORDER_DETAILS'
 
@@ -312,9 +315,7 @@ def send_stickers(update: Update, context: CallbackContext, supply_id: str):
 
 def close_supply(update: Update, context: CallbackContext, supply_id: str):
     wb_api_client = WBApiClient()
-    status_code = wb_api_client.send_supply_to_deliver(supply_id)
-    if status_code != 204:
-        raise WBAPIError(message=update.callback_query.data, code=status_code)
+    wb_api_client.send_supply_to_deliver(supply_id)
     context.bot.answer_callback_query(update.callback_query.id, 'Отправлено в доставку')
     supply_sticker = get_supply_sticker(supply_id)
     context.bot.send_photo(
@@ -335,18 +336,15 @@ def ask_to_choose_supply(update: Update, context: CallbackContext):
             InlineKeyboardButton(button_name, callback_data=f'{supply.id}_{order_id}')
         ])
 
-    keyboard.extend([
-        [InlineKeyboardButton('Создать новую поставку', callback_data='new_supply')],
-        [MAIN_MENU_BUTTON]
-    ])
-    context.bot.delete_message(
-        chat_id=update.effective_chat.id,
-        message_id=update.effective_message.message_id
+    keyboard.append(
+        [InlineKeyboardButton('Создать новую поставку', callback_data='new_supply')]
     )
-    context.bot.send_message(
-        chat_id=update.effective_chat.id,
-        text='Выберите поставку',
-        reply_markup=InlineKeyboardMarkup(keyboard)
+    text = 'Выберите поставку'
+    answer_to_user(
+        update,
+        context,
+        text,
+        keyboard
     )
     return 'HANDLE_SUPPLY_CHOICE'
 
@@ -361,17 +359,14 @@ def add_order_to_supply(update: Update, context: CallbackContext):
 def ask_for_supply_name(update: Update, context: CallbackContext):
     redis = RedisClient()
     keyboard = [
-        [InlineKeyboardButton('Назад к списку поставок', callback_data='cancel')],
-        [MAIN_MENU_BUTTON]
+        [InlineKeyboardButton('Назад к списку поставок', callback_data='cancel')]
     ]
-    context.bot.delete_message(
-        chat_id=update.effective_chat.id,
-        message_id=update.effective_message.message_id
-    )
-    message = context.bot.send_message(
-        chat_id=update.effective_chat.id,
-        text='Напишите название для новой поставки',
-        reply_markup=InlineKeyboardMarkup(keyboard)
+    text = 'Пришлите мне название для новой поставки'
+    message = answer_to_user(
+        update,
+        context,
+        text,
+        keyboard
     )
     redis.client.set(f'message_{update.effective_chat.id}', message.message_id)
     return 'HANDLE_NEW_SUPPLY_NAME'
