@@ -83,7 +83,7 @@ class WBApiClient:
                 continue
 
     @retry_on_network_error
-    def get_all_product_cards(self, articles: Iterable) -> Generator:
+    def get_products_by_articles(self, articles: Iterable) -> Generator:
         for chunk in more_itertools.chunked(articles, 100):
             response = requests.post(
                 'https://suppliers-api.wildberries.ru/content/v1/cards/filter',
@@ -146,13 +146,13 @@ class WBApiClient:
         return stickers
 
     @retry_on_network_error
-    def send_supply_to_deliver(self, supply_id: str) -> int:
+    def send_supply_to_deliver(self, supply_id: str) -> bool:
         response = requests.patch(
             f'https://suppliers-api.wildberries.ru/api/v3/supplies/{supply_id}/deliver',
             headers=self._headers
         )
-        response.raise_for_status()
-        return response.status_code
+        check_response(response)
+        return response.ok
 
     @retry_on_network_error
     def get_supply_qr_code(self, supply_id: str) -> SupplyQRCode:
@@ -216,7 +216,7 @@ class WBApiClient:
             headers=self._headers
         )
         check_response(response)
-        return response.status_code
+        return response.ok
 
     @retry_on_network_error
     def create_new_supply(self, supply_name: str) -> str:
@@ -234,5 +234,5 @@ class WBApiClient:
             f'https://suppliers-api.wildberries.ru/api/v3/supplies/{supply_id}',
             headers=self._headers
         )
-        response.raise_for_status()
-        return response.status_code
+        check_response(response)
+        return response.ok
