@@ -8,10 +8,9 @@ from paginator import Paginator
 from utils import convert_to_created_ago
 from wb_api.classes import Order
 from wb_api.client import WBApiClient
-from wb_api.errors import WBAPIError
 from redis_client import RedisClient
 
-MAIN_MENU_BUTTON = InlineKeyboardButton('Основное меню', callback_data='start')
+_MAIN_MENU_BUTTON = InlineKeyboardButton('Основное меню', callback_data='start')
 
 
 def answer_to_user(
@@ -23,7 +22,7 @@ def answer_to_user(
 ):
     user_id = update.effective_chat.id
     if add_main_menu_button:
-        keyboard.append([MAIN_MENU_BUTTON])
+        keyboard.append([_MAIN_MENU_BUTTON])
     context.bot.delete_message(
         chat_id=update.effective_chat.id,
         message_id=update.effective_message.message_id
@@ -65,7 +64,7 @@ def show_supplies(
     keyboard = paginator.get_keyboard(
         page_number=page_number,
         callback_data_prefix='supply_',
-        main_menu_button=MAIN_MENU_BUTTON
+        main_menu_button=_MAIN_MENU_BUTTON
     )
     text = 'Список поставок'
     if paginator.is_paginated:
@@ -95,7 +94,7 @@ def show_new_orders(
     paginator = Paginator(new_orders, page_size)
     keyboard = paginator.get_keyboard(
         page_number=page_number,
-        main_menu_button=MAIN_MENU_BUTTON,
+        main_menu_button=_MAIN_MENU_BUTTON,
     )
     if new_orders:
         page_info = f' (стр. {page_number + 1})' if paginator.is_paginated else ''
@@ -170,7 +169,7 @@ def edit_supply(
     keyboard = paginator.get_keyboard(
         page_number=page_number,
         callback_data_prefix=f'{supply_id}_',
-        main_menu_button=MAIN_MENU_BUTTON
+        main_menu_button=_MAIN_MENU_BUTTON
     )
     keyboard.insert(
         -1,
