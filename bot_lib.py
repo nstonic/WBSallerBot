@@ -323,7 +323,16 @@ def ask_to_choose_supply(update: Update, context: CallbackContext):
 def add_order_to_supply(update: Update, context: CallbackContext):
     supply_id, order_id = update.callback_query.data.split('_')
     wb_api_client = WBApiClient()
-    wb_api_client.add_order_to_supply(supply_id, order_id)
+    if not wb_api_client.add_order_to_supply(supply_id, order_id):
+        context.bot.answer_callback_query(
+            update.callback_query.id,
+            'Произошла ошибка. Попробуйте позже'
+        )
+    else:
+        context.bot.answer_callback_query(
+            update.callback_query.id,
+            f'Заказ {order_id} добавлен к поставке {supply_id}'
+        )
     return show_supply(update, context, supply_id)
 
 
@@ -347,7 +356,11 @@ def create_new_supply(update: Update, context: CallbackContext):
     wb_api_client = WBApiClient()
     redis = RedisClient()
     new_supply_name = update.message.text
-    wb_api_client.create_new_supply(new_supply_name)
+    supply_id = wb_api_client.create_new_supply(new_supply_name)
+    context.bot.answer_callback_query(
+        update.callback_query.id,
+        f'Создана поставка {supply_id}'
+    )
     message_to_delete = redis.client.get(
         f'message_{update.effective_message.from_user.id}'
     ).decode('utf-8')
@@ -362,24 +375,36 @@ def create_new_supply(update: Update, context: CallbackContext):
 
 def delete_supply(update, context, supply_id: str):
     wb_api_client = WBApiClient()
-    wb_api_client.delete_supply_by_id(supply_id)
-    context.bot.answer_callback_query(
-        update.callback_query.id,
-        'Поставка удалена'
-    )
+    if not wb_api_client.delete_supply_by_id(supply_id):
+        context.bot.answer_callback_query(
+            update.callback_query.id,
+            'Произошла ошибка. Попробуйте позже'
+        )
+    else:
+        context.bot.answer_callback_query(
+            update.callback_query.id,
+            'Поставка удалена'
+        )
     return show_supplies(update, context)
 
 
 def close_supply(update: Update, context: CallbackContext, supply_id: str):
     wb_api_client = WBApiClient()
-    wb_api_client.send_supply_to_deliver(supply_id)
-    context.bot.answer_callback_query(
-        update.callback_query.id,
-        'Отправлено в доставку'
-    )
-    supply_sticker = get_supply_sticker(supply_id)
-    context.bot.send_photo(
-        chat_id=update.effective_chat.id,
-        photo=supply_sticker
-    )
+    if not wb_api_client.send_supply_to_deliver(supply_id):
+        context.bot.answer_callback_query(
+            update.callback_query.id,
+            'Произошла ошибка. Попробуйте позже'
+        )
+    else:
+        context.bot.answer_callback_query(
+            update.callback_query.id,
+            'Отправлено в доставку'
+        )
+        wb_api_client = WBApiClient()
+        supply_qr_code = wb_api_client.get_supply_qr_code(supply_id)
+        supply_sticker = get_supply_sticker(supply_qr_code)
+        context.bot.send_photo(
+            chat_id=update.effective_chat.id,
+            photo=supply_sticker
+        )
     return show_supplies(update, context)
