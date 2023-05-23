@@ -1,9 +1,11 @@
 import datetime
 from dataclasses import dataclass
 
+import requests
 from pydantic import BaseModel, Field
 
 from utils import convert_to_created_ago
+from wb_api.errors import retry_on_network_error, check_response
 
 
 class Supply(BaseModel):
@@ -55,9 +57,8 @@ class Product:
     article: str
     name: str = None
     barcode: str = None
-
-    def to_tuple(self):
-        return self.article, self.name, self.barcode
+    media_urls: list[str] = None
+    media_files: list[bytes] = None
 
     @staticmethod
     def parse_from_card(product_card: dict):
@@ -68,8 +69,17 @@ class Product:
             name = 'Наименование продукции'
         barcode = product_card['sizes'][0]['skus'][0]
         article = product_card.get('vendorCode', '0000000000')
+        media_files = product_card.get('mediaFiles')
         return Product(
-            name=name,
-            barcode=barcode,
-            article=article
+            name,
+            barcode,
+            article,
+            media_files
         )
+
+    @retry_on_network_error
+    def get_media(self):
+        for media_file in self.media_urls:
+            response = requests.get(media_file)
+            check_response(response)
+            self.media_files.append(response.content)

@@ -45,8 +45,8 @@ class WBApiClient:
             headers=self._headers
         )
         check_response(response)
-        for product_card in response.json()["data"]:
-            if product_card["vendorCode"] == article:
+        for product_card in response.json()['data']:
+            if product_card['vendorCode'] == article:
                 return Product.parse_from_card(product_card)
         return Product(article=article)
 
