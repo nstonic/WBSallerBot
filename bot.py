@@ -27,11 +27,9 @@ from bot_lib import (
     create_new_supply,
     delete_supply,
     edit_supply,
-    show_order_details, get_confirmation_to_close_supply
+    show_order_details, get_confirmation_to_close_supply, send_supply_qr_code
 )
 from logger import TGLoggerHandler
-from redis_client import RedisClient
-
 tg_logger = logging.getLogger('TG_logger')
 
 
@@ -66,6 +64,8 @@ def handle_supply(update: Update, context: CallbackContext):
         return delete_supply(update, context, supply_id)
     if query.startswith('edit_'):
         return edit_supply(update, context, supply_id)
+    if query.startswith('qr_'):
+        return send_supply_qr_code(update, context, supply_id)
     if query.startswith('show_supplies'):
         return show_supplies(update, context)
 
@@ -131,8 +131,6 @@ def handle_edit_supply(update: Update, context: CallbackContext):
 
 
 def handle_users_reply(update: Update, context: CallbackContext, user_ids: int):
-    db = RedisClient()
-
     if update.effective_chat.id not in user_ids:
         return
 
@@ -147,9 +145,9 @@ def handle_users_reply(update: Update, context: CallbackContext, user_ids: int):
 
     if user_reply in ['/start', 'start']:
         user_state = 'START'
-        db.client.set(chat_id, user_state)
+        context.user_data['state'] = user_state
     else:
-        user_state = db.client.get(chat_id).decode('utf-8')
+        user_state = context.user_data.get('state')
 
     if user_state not in ['HANDLE_NEW_SUPPLY_NAME', 'START']:
         if update.message:
@@ -177,7 +175,7 @@ def handle_users_reply(update: Update, context: CallbackContext, user_ids: int):
         update=update,
         context=context
     ) or user_state
-    db.client.set(chat_id, next_state)
+    context.user_data['state'] = next_state
 
 
 def error_handler(update: Update, context: CallbackContext):
@@ -188,11 +186,6 @@ def main():
     env = Env()
     env.read_env()
     WBApiClient(token=env('WB_API_KEY'))
-    RedisClient(
-        host=env('REDIS_URL'),
-        port=env('REDIS_PORT'),
-        password=env('REDIS_PASSWORD')
-    )
     handle_users_reply_with_owner_id = partial(
         handle_users_reply,
         user_ids=env.list('USER_IDS', subcast=int)

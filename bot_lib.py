@@ -8,7 +8,6 @@ from stickers import get_supply_sticker, get_orders_stickers
 from paginator import Paginator
 from utils import convert_to_created_ago
 from wb_api.client import WBApiClient
-from redis_client import RedisClient
 
 _MAIN_MENU_BUTTON = InlineKeyboardButton('Основное меню', callback_data='start')
 
@@ -130,19 +129,25 @@ def show_supply(update: Update, context: CallbackContext, supply_id: str):
     wb_api_client = WBApiClient()
     supply = wb_api_client.get_supply(supply_id)
     orders = wb_api_client.get_supply_orders(supply_id)
-    if orders:
-        keyboard = [
-            [InlineKeyboardButton('Создать стикеры', callback_data=f'stickers_{supply_id}')]
-        ]
-        if not supply.is_done:
-            keyboard.insert(
-                1,
-                [InlineKeyboardButton('Редактировать заказы', callback_data=f'edit_{supply_id}')]
-            )
-            keyboard.insert(
-                1,
+
+    if not supply.is_done:
+        if orders:
+            keyboard = [
+                [InlineKeyboardButton('Создать стикеры', callback_data=f'stickers_{supply_id}')],
+                [InlineKeyboardButton('Редактировать заказы', callback_data=f'edit_{supply_id}')],
                 [InlineKeyboardButton('Отправить в доставку', callback_data=f'close_{supply_id}')]
-            )
+            ]
+        else:
+            keyboard = [
+                [InlineKeyboardButton('Удалить поставку', callback_data=f'delete_{supply_id}')]
+            ]
+    else:
+        keyboard = [
+            [InlineKeyboardButton('Создать стикеры', callback_data=f'stickers_{supply_id}')],
+            [InlineKeyboardButton('QR-код поставки', callback_data=f'qr_{supply_id}')]
+        ]
+
+    if orders:
         articles = [order.article for order in orders]
         joined_orders = '\n'.join(
             [f'{article} - {count}шт.'
@@ -150,9 +155,6 @@ def show_supply(update: Update, context: CallbackContext, supply_id: str):
         )
         text = f'Заказы по поставке {supply_id}:\n\n{joined_orders}'
     else:
-        keyboard = [
-            [InlineKeyboardButton('Удалить поставку', callback_data=f'delete_{supply_id}')]
-        ]
         text = f'В поставке нет заказов'
 
     keyboard.append(
@@ -349,7 +351,6 @@ def add_order_to_supply(update: Update, context: CallbackContext):
 
 
 def ask_for_supply_name(update: Update, context: CallbackContext):
-    redis = RedisClient()
     keyboard = [
         [InlineKeyboardButton('Назад к списку поставок', callback_data='cancel')]
     ]
@@ -360,18 +361,15 @@ def ask_for_supply_name(update: Update, context: CallbackContext):
         text,
         keyboard
     )
-    redis.client.set(f'message_{update.effective_chat.id}', message.message_id)
+    context.chat_data['message_to_delete'] = message.message_id
     return 'HANDLE_NEW_SUPPLY_NAME'
 
 
 def create_new_supply(update: Update, context: CallbackContext):
     wb_api_client = WBApiClient()
-    redis = RedisClient()
     new_supply_name = update.message.text
     wb_api_client.create_new_supply(new_supply_name)
-    message_to_delete = redis.client.get(
-        f'message_{update.effective_message.from_user.id}'
-    ).decode('utf-8')
+    message_to_delete = context.chat_data.get('message_to_delete')
     if message_to_delete:
         context.bot.delete_message(
             chat_id=update.effective_chat.id,
@@ -403,18 +401,23 @@ def close_supply(update: Update, context: CallbackContext, supply_id: str):
             update.callback_query.id,
             'Произошла ошибка. Попробуйте позже'
         )
+        return show_supplies(update, context)
     else:
         context.bot.answer_callback_query(
             update.callback_query.id,
             'Отправлено в доставку'
         )
-        wb_api_client = WBApiClient()
-        supply_qr_code = wb_api_client.get_supply_qr_code(supply_id)
-        supply_sticker = get_supply_sticker(supply_qr_code)
-        context.bot.send_photo(
-            chat_id=update.effective_chat.id,
-            photo=supply_sticker
-        )
+        return send_supply_qr_code(update, context, supply_id)
+
+
+def send_supply_qr_code(update: Update, context: CallbackContext, supply_id: str):
+    wb_api_client = WBApiClient()
+    supply_qr_code = wb_api_client.get_supply_qr_code(supply_id)
+    supply_sticker = get_supply_sticker(supply_qr_code)
+    context.bot.send_photo(
+        chat_id=update.effective_chat.id,
+        photo=supply_sticker
+    )
     return show_supplies(update, context)
 
 
