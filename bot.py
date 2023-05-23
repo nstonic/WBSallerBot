@@ -30,6 +30,7 @@ from bot_lib import (
     show_order_details, get_confirmation_to_close_supply, send_supply_qr_code
 )
 from logger import TGLoggerHandler
+
 tg_logger = logging.getLogger('TG_logger')
 
 
@@ -50,7 +51,11 @@ def handle_supplies_menu(update: Update, context: CallbackContext):
         return ask_for_supply_name(update, context)
     if query.startswith('page_'):
         _, page_number = query.split('_', maxsplit=2)
-        return show_supplies(update, context, page_number=int(page_number))
+        return show_supplies(
+            update,
+            context,
+            page_number=int(page_number)
+        )
 
 
 def handle_supply(update: Update, context: CallbackContext):
@@ -121,7 +126,12 @@ def handle_edit_supply(update: Update, context: CallbackContext):
         page_callback_data, supply_callback_data = query.split(' ', maxsplit=1)
         page = page_callback_data.replace('page_', '')
         supply_id = supply_callback_data.replace('supply_', '')
-        return edit_supply(update, context, supply_id=supply_id, page_number=int(page))
+        return edit_supply(
+            update,
+            context,
+            supply_id=supply_id,
+            page_number=int(page)
+        )
     elif query.startswith('supply_'):
         _, supply_id = query.split('_', maxsplit=1)
         return show_supply(update, context, supply_id)
@@ -136,10 +146,8 @@ def handle_users_reply(update: Update, context: CallbackContext, user_ids: int):
 
     if update.message:
         user_reply = update.message.text
-        chat_id = update.message.chat_id
     elif update.callback_query:
         user_reply = update.callback_query.data
-        chat_id = update.callback_query.message.chat_id
     else:
         return
 

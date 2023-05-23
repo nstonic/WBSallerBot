@@ -460,7 +460,7 @@ def get_confirmation_to_close_supply(update: Update, context: CallbackContext, s
     text = 'Вы уверены, что хотите закрыть поставку? Это действие невозможно отменить.'
     keyboard = [
         [InlineKeyboardButton('Да', callback_data=f'yes_{supply_id}'),
-         InlineKeyboardButton('Нет', callback_data=f'no')]
+         InlineKeyboardButton('Нет', callback_data='no')]
     ]
     answer_to_user(
         update,

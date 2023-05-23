@@ -42,14 +42,14 @@ class Paginator:
             keyboard_menu_buttons.insert(
                 0,
                 InlineKeyboardButton(
-                    f'< {page_number}/{self.total_pages}',
+                    f'< стр. {page_number} из {self.total_pages}',
                     callback_data=f'page_{page_number - 1}{page_callback_data_postfix}'
                 )
             )
         if page_number < self.max_page_number:
             keyboard_menu_buttons.append(
                 InlineKeyboardButton(
-                    f'{page_number + 2}/{self.total_pages} >',
+                    f'стр. {page_number + 2} из {self.total_pages} >',
                     callback_data=f'page_{page_number + 1}{page_callback_data_postfix}'
                 )
             )
