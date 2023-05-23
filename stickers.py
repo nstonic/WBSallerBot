@@ -68,6 +68,7 @@ def get_orders_stickers(
         with ZipFile(zip_file, 'a', ZIP_DEFLATED, False) as archive:
             for sticker_file in sticker_files:
                 archive.writestr(sticker_file.name, sticker_file.getvalue())
+                sticker_file.close()
         return zip_file
 
 
@@ -84,48 +85,48 @@ def create_stickers_by_article(
         order_qr_code_files.append(
             BytesIO(qr_code_in_byte_format)
         )
-    with BytesIO() as pdf_file:
-        pdf_file.name = f'{product.article}.pdf'
-        pdf = BaseDocTemplate(pdf_file, showBoundary=0)
+    pdf_file = BytesIO()
+    pdf_file.name = f'{product.article}.pdf'
+    pdf = BaseDocTemplate(pdf_file, showBoundary=0)
 
-        font_path = os.path.join(pathlib.Path(__file__).parent.resolve(), config.FONT_FILE)
-        pdfmetrics.registerFont(TTFont(config.FONT_NAME, font_path))
-        sticker_size = (120 * mm, 75 * mm)
-        style = getSampleStyleSheet()['BodyText']
-        style.fontName = config.FONT_NAME
-        frame_sticker = Frame(0, 0, *sticker_size)
-        frame_description = Frame(10 * mm, 5 * mm, 100 * mm, 40 * mm)
+    font_path = os.path.join(pathlib.Path(__file__).parent.resolve(), config.FONT_FILE)
+    pdfmetrics.registerFont(TTFont(config.FONT_NAME, font_path))
+    sticker_size = (120 * mm, 75 * mm)
+    style = getSampleStyleSheet()['BodyText']
+    style.fontName = config.FONT_NAME
+    frame_sticker = Frame(0, 0, *sticker_size)
+    frame_description = Frame(10 * mm, 5 * mm, 100 * mm, 40 * mm)
 
-        elements = []
-        for qr_code in order_qr_code_files:
-            data = [
-                [Paragraph(product.name, style)],
-                [Paragraph(f'Артикул: {product.article}', style)],
-                [Paragraph(f'Страна: {config.COUNTRY}', style)],
-                [Paragraph(f'Бренд: {config.BRAND}', style)]
-            ]
+    elements = []
+    for qr_code in order_qr_code_files:
+        data = [
+            [Paragraph(product.name, style)],
+            [Paragraph(f'Артикул: {product.article}', style)],
+            [Paragraph(f'Страна: {config.COUNTRY}', style)],
+            [Paragraph(f'Бренд: {config.BRAND}', style)]
+        ]
 
-            elements.append(Image(qr_code, useDPI=300, width=95 * mm, height=65 * mm))
-            elements.append(NextPageTemplate('Barcode'))
-            elements.append(PageBreak())
-            elements.append(Table(data, colWidths=[100 * mm]))
-            elements.append(NextPageTemplate('Image'))
-            elements.append(PageBreak())
+        elements.append(Image(qr_code, useDPI=300, width=95 * mm, height=65 * mm))
+        elements.append(NextPageTemplate('Barcode'))
+        elements.append(PageBreak())
+        elements.append(Table(data, colWidths=[100 * mm]))
+        elements.append(NextPageTemplate('Image'))
+        elements.append(PageBreak())
 
-            def barcode(canvas, doc):
-                canvas.saveState()
-                barcode128 = code128.Code128(
-                    product.barcode,
-                    barHeight=50,
-                    barWidth=1.45,
-                    humanReadable=True
-                )
-                barcode128.drawOn(canvas, x=19.5 * mm, y=53 * mm)
-                canvas.restoreState()
-
-            pdf.addPageTemplates(
-                [PageTemplate(id='Image', frames=frame_sticker, pagesize=sticker_size),
-                 PageTemplate(id='Barcode', frames=frame_description, pagesize=sticker_size, onPage=barcode)]
+        def barcode(canvas, doc):
+            canvas.saveState()
+            barcode128 = code128.Code128(
+                product.barcode,
+                barHeight=50,
+                barWidth=1.45,
+                humanReadable=True
             )
-        pdf.build(elements)
-        return pdf_file
+            barcode128.drawOn(canvas, x=19.5 * mm, y=53 * mm)
+            canvas.restoreState()
+
+        pdf.addPageTemplates(
+            [PageTemplate(id='Image', frames=frame_sticker, pagesize=sticker_size),
+             PageTemplate(id='Barcode', frames=frame_description, pagesize=sticker_size, onPage=barcode)]
+        )
+    pdf.build(elements)
+    return pdf_file
