@@ -4,12 +4,15 @@ from contextlib import suppress
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, TelegramError
 from telegram.ext import CallbackContext
 
+import config
 from stickers import get_supply_sticker, get_orders_stickers
 from paginator import Paginator, PaginatorItem
 from utils import convert_to_created_ago
 from wb_api.client import WBApiClient
 
 _MAIN_MENU_BUTTON = InlineKeyboardButton('Основное меню', callback_data='start')
+SUPPLIES_QUANTITY = config.SUPPLIES_QUANTITY if hasattr(config, 'SUPPLIES_QUANTITY') else 40
+PAGE_SIZE = config.PAGINATOR_PAGE_SIZE if hasattr(config, 'PAGINATOR_PAGE_SIZE') else 8
 
 
 def answer_to_user(
@@ -64,9 +67,9 @@ def show_start_menu(update: Update, context: CallbackContext):
 def show_supplies(
         update: Update,
         context: CallbackContext,
-        quantity: int = 50,
         page_number: int = 0,
-        page_size: int = 10
+        quantity: int = SUPPLIES_QUANTITY,
+        page_size: int = PAGE_SIZE
 ):
     wb_api_client = WBApiClient()
     supplies = wb_api_client.get_supplies(only_active=False, quantity=quantity)
@@ -109,7 +112,7 @@ def show_new_orders(
         update: Update,
         context: CallbackContext,
         page_number: int = 0,
-        page_size: int = 10
+        page_size: int = PAGE_SIZE
 ):
     wb_api_client = WBApiClient()
     new_orders = wb_api_client.get_new_orders()
@@ -196,7 +199,7 @@ def edit_supply(
         context: CallbackContext,
         supply_id: str,
         page_number: int = 0,
-        page_size: int = 10
+        page_size: int = PAGE_SIZE
 ):
     wb_api_client = WBApiClient()
     keyboard = [[InlineKeyboardButton('Вернуться к поставке', callback_data=f'supply_{supply_id}')]]
