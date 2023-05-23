@@ -338,6 +338,7 @@ def send_stickers(update: Update, context: CallbackContext, supply_id: str):
         order_qr_codes,
         supply_id
     )
+    zip_file.close()
     context.bot.send_document(
         chat_id=update.effective_chat.id,
         document=zip_file.getvalue(),
