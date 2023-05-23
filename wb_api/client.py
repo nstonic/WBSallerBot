@@ -4,7 +4,7 @@ import more_itertools
 import requests
 
 from .classes import Supply, Order, Product, OrderQRCode, SupplyQRCode
-from .errors import check_response, retry_on_network_error, WBAPIError
+from .errors import check_response, retry_on_network_error
 
 
 class WBApiClient:
@@ -144,6 +144,7 @@ class WBApiClient:
             check_response(response)
             stickers.extend([OrderQRCode.parse_obj(sticker) for sticker in response.json()['stickers']])
         return stickers
+
 
     @retry_on_network_error
     def send_supply_to_deliver(self, supply_id: str) -> bool:
