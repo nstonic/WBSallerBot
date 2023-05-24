@@ -54,10 +54,10 @@ class Product:
         article = product_card.get('vendorCode', '0000000000')
         media_files = product_card.get('mediaFiles')
         return Product(
-            name,
-            barcode,
-            article,
-            media_files
+            article=article,
+            name=name,
+            barcode=barcode,
+            media_files=media_files
         )
 
     @retry_on_network_error
