@@ -178,7 +178,7 @@ def show_supply(update: Update, context: CallbackContext, supply_id: str):
             [f'{article} - {count}шт.'
              for article, count in Counter(sorted(articles)).items()]
         )
-        text = f'Заказы по поставке {supply_id}:\n\n{joined_orders}'
+        text = f'Заказы по поставке {supply.name}:\n\n{joined_orders}'
     else:
         text = f'В поставке нет заказов'
 
@@ -338,12 +338,12 @@ def send_stickers(update: Update, context: CallbackContext, supply_id: str):
         order_qr_codes,
         supply_id
     )
-    zip_file.close()
     context.bot.send_document(
         chat_id=update.effective_chat.id,
         document=zip_file.getvalue(),
         filename=zip_file.name
     )
+    zip_file.close()
 
 
 def ask_to_choose_supply(update: Update, context: CallbackContext):

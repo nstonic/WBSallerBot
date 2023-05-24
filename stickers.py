@@ -26,10 +26,10 @@ def get_supply_sticker(supply_qr_code: SupplyQRCode) -> bytes:
     )
     with BytesIO(sticker_in_bytes) as file:
         image = PILImage.open(file).rotate(-90, expand=True)
-
-    with BytesIO() as supply_sticker:
-        image.save(supply_sticker, format='PNG')
-        return supply_sticker.getvalue()
+    with BytesIO() as file:
+        image.save(file, format='PNG')
+        supply_sticker = file.getvalue()
+    return supply_sticker
 
 
 def get_orders_stickers(
