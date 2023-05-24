@@ -332,18 +332,17 @@ def send_stickers(update: Update, context: CallbackContext, supply_id: str):
     )
     articles = set([order.article for order in orders])
     products = [wb_api_client.get_product(article) for article in articles]
-    zip_file = get_orders_stickers(
-        orders,
-        products,
-        order_qr_codes,
-        supply_id
-    )
-    context.bot.send_document(
-        chat_id=update.effective_chat.id,
-        document=zip_file.getvalue(),
-        filename=zip_file.name
-    )
-    zip_file.close()
+    with get_orders_stickers(
+            orders,
+            products,
+            order_qr_codes,
+            supply_id
+    ) as zip_file:
+        context.bot.send_document(
+            chat_id=update.effective_chat.id,
+            document=zip_file.getvalue(),
+            filename=zip_file.name
+        )
 
 
 def ask_to_choose_supply(update: Update, context: CallbackContext):

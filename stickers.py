@@ -2,6 +2,7 @@ import os
 import pathlib
 from base64 import b64decode
 from io import BytesIO
+from pprint import pprint
 from zipfile import ZipFile, ZIP_DEFLATED
 
 from PIL import Image as PILImage
@@ -63,13 +64,13 @@ def get_orders_stickers(
         )
         sticker_files.append(sticker_file)
 
-    with BytesIO() as zip_file:
-        zip_file.name = f'Stickers for {supply_id}.zip'
-        with ZipFile(zip_file, 'a', ZIP_DEFLATED, False) as archive:
-            for sticker_file in sticker_files:
-                archive.writestr(sticker_file.name, sticker_file.getvalue())
-                sticker_file.close()
-        return zip_file
+    zip_file = BytesIO()
+    zip_file.name = f'Stickers for {supply_id}.zip'
+    with ZipFile(zip_file, 'a', ZIP_DEFLATED, False) as archive:
+        for sticker_file in sticker_files:
+            archive.writestr(sticker_file.name, sticker_file.getvalue())
+            sticker_file.close()
+    return zip_file
 
 
 def create_stickers_by_article(
