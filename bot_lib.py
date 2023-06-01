@@ -11,8 +11,8 @@ from utils import convert_to_created_ago
 from wb_api.client import WBApiClient
 
 _MAIN_MENU_BUTTON = InlineKeyboardButton('Основное меню', callback_data='start')
-SUPPLIES_QUANTITY = config.SUPPLIES_QUANTITY if hasattr(config, 'SUPPLIES_QUANTITY') else 40
-PAGE_SIZE = config.PAGINATOR_PAGE_SIZE if hasattr(config, 'PAGINATOR_PAGE_SIZE') else 8
+_SUPPLIES_QUANTITY = config.SUPPLIES_QUANTITY if hasattr(config, 'SUPPLIES_QUANTITY') else 40
+_PAGE_SIZE = config.PAGINATOR_PAGE_SIZE if hasattr(config, 'PAGINATOR_PAGE_SIZE') else 8
 
 
 def answer_to_user(
@@ -26,26 +26,17 @@ def answer_to_user(
     if add_main_menu_button:
         keyboard.append([_MAIN_MENU_BUTTON])
 
-    try:
-        return context.bot.edit_message_text(
+    with suppress(TelegramError):
+        context.bot.delete_message(
             chat_id=update.effective_chat.id,
-            message_id=update.effective_message.message_id,
-            text=text,
-            reply_markup=InlineKeyboardMarkup(keyboard),
-            parse_mode=parse_mode
+            message_id=update.effective_message.message_id
         )
-    except TelegramError:
-        with suppress(TelegramError):
-            context.bot.delete_message(
-                chat_id=update.effective_chat.id,
-                message_id=update.effective_message.message_id
-            )
-        return context.bot.send_message(
-            chat_id=update.effective_chat.id,
-            text=text,
-            reply_markup=InlineKeyboardMarkup(keyboard),
-            parse_mode=parse_mode
-        )
+    return context.bot.send_message(
+        chat_id=update.effective_chat.id,
+        text=text,
+        reply_markup=InlineKeyboardMarkup(keyboard),
+        parse_mode=parse_mode
+    )
 
 
 def show_start_menu(update: Update, context: CallbackContext):
@@ -68,8 +59,8 @@ def show_supplies(
         update: Update,
         context: CallbackContext,
         page_number: int = 0,
-        quantity: int = SUPPLIES_QUANTITY,
-        page_size: int = PAGE_SIZE
+        quantity: int = _SUPPLIES_QUANTITY,
+        page_size: int = _PAGE_SIZE
 ):
     wb_api_client = WBApiClient()
     supplies = wb_api_client.get_supplies(only_active=False, quantity=quantity)
@@ -112,7 +103,7 @@ def show_new_orders(
         update: Update,
         context: CallbackContext,
         page_number: int = 0,
-        page_size: int = PAGE_SIZE
+        page_size: int = _PAGE_SIZE
 ):
     wb_api_client = WBApiClient()
     new_orders = wb_api_client.get_new_orders()
@@ -199,7 +190,7 @@ def edit_supply(
         context: CallbackContext,
         supply_id: str,
         page_number: int = 0,
-        page_size: int = PAGE_SIZE
+        page_size: int = _PAGE_SIZE
 ):
     wb_api_client = WBApiClient()
     keyboard = [[InlineKeyboardButton('Вернуться к поставке', callback_data=f'supply_{supply_id}')]]
