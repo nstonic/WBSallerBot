@@ -2,8 +2,10 @@ import os
 import pathlib
 from base64 import b64decode
 from io import BytesIO
+from pprint import pprint
 from zipfile import ZipFile, ZIP_DEFLATED
 
+from PIL import Image as PILImage
 from reportlab.graphics.barcode import code128
 from reportlab.lib.styles import getSampleStyleSheet
 from reportlab.lib.units import mm
@@ -23,14 +25,12 @@ def get_supply_sticker(supply_qr_code: SupplyQRCode) -> bytes:
         supply_qr_code.image_string,
         validate=True
     )
-    image = Image.open(
-        BytesIO(
-            sticker_in_bytes
-        )
-    ).rotate(-90, expand=True)
-    supply_sticker = BytesIO()
-    image.save(supply_sticker, format='PNG')
-    return supply_sticker.getvalue()
+    with BytesIO(sticker_in_bytes) as file:
+        image = PILImage.open(file).rotate(-90, expand=True)
+    with BytesIO() as file:
+        image.save(file, format='PNG')
+        supply_sticker = file.getvalue()
+    return supply_sticker
 
 
 def get_orders_stickers(
@@ -69,6 +69,7 @@ def get_orders_stickers(
     with ZipFile(zip_file, 'a', ZIP_DEFLATED, False) as archive:
         for sticker_file in sticker_files:
             archive.writestr(sticker_file.name, sticker_file.getvalue())
+            sticker_file.close()
     return zip_file
 
 
@@ -85,14 +86,13 @@ def create_stickers_by_article(
         order_qr_code_files.append(
             BytesIO(qr_code_in_byte_format)
         )
-
     pdf_file = BytesIO()
     pdf_file.name = f'{product.article}.pdf'
+    pdf = BaseDocTemplate(pdf_file, showBoundary=0)
 
     font_path = os.path.join(pathlib.Path(__file__).parent.resolve(), config.FONT_FILE)
     pdfmetrics.registerFont(TTFont(config.FONT_NAME, font_path))
     sticker_size = (120 * mm, 75 * mm)
-    pdf = BaseDocTemplate(pdf_file, showBoundary=0)
     style = getSampleStyleSheet()['BodyText']
     style.fontName = config.FONT_NAME
     frame_sticker = Frame(0, 0, *sticker_size)

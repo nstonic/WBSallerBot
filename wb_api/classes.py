@@ -1,9 +1,10 @@
 import datetime
 from dataclasses import dataclass
 
+import requests
 from pydantic import BaseModel, Field
 
-from utils import convert_to_created_ago
+from wb_api.errors import retry_on_network_error, check_response
 
 
 class Supply(BaseModel):
@@ -13,16 +14,6 @@ class Supply(BaseModel):
     created_at: datetime.datetime = Field(alias='createdAt')
     is_done: bool = Field(alias='done')
 
-    def to_tuple(self):
-        return self.id, self.name, self.closed_at, self.created_at, self.is_done
-
-    def get_callback_data(self):
-        return self.id
-
-    def get_button_text(self):
-        is_done = {0: 'Открыта', 1: 'Закрыта'}
-        return f'{self.name} | {self.id} | {is_done[self.is_done]}'
-
 
 class Order(BaseModel):
     id: int
@@ -30,12 +21,6 @@ class Order(BaseModel):
     converted_price: int = Field(alias='convertedPrice')
     article: str
     created_at: datetime.datetime = Field(alias='createdAt')
-
-    def get_callback_data(self):
-        return self.id
-
-    def get_button_text(self):
-        return f'{self.article} | {convert_to_created_ago(self.created_at)}'
 
 
 class OrderQRCode(BaseModel):
@@ -55,9 +40,8 @@ class Product:
     article: str
     name: str = None
     barcode: str = None
-
-    def to_tuple(self):
-        return self.article, self.name, self.barcode
+    media_urls: list[str] = None
+    media_files: list[bytes] = None
 
     @staticmethod
     def parse_from_card(product_card: dict):
@@ -68,8 +52,17 @@ class Product:
             name = 'Наименование продукции'
         barcode = product_card['sizes'][0]['skus'][0]
         article = product_card.get('vendorCode', '0000000000')
+        media_files = product_card.get('mediaFiles')
         return Product(
+            article=article,
             name=name,
             barcode=barcode,
-            article=article
+            media_files=media_files
         )
+
+    @retry_on_network_error
+    def get_media(self):
+        for media_file in self.media_urls:
+            response = requests.get(media_file)
+            check_response(response)
+            self.media_files.append(response.content)

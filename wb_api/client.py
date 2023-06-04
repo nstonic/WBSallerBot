@@ -47,8 +47,8 @@ class WBApiClient:
             headers=self._headers
         )
         check_response(response)
-        for product_card in response.json()["data"]:
-            if product_card["vendorCode"] == article:
+        for product_card in response.json()['data']:
+            if product_card['vendorCode'] == article:
                 return Product.parse_from_card(product_card)
         return Product(article=article)
 
@@ -146,6 +146,7 @@ class WBApiClient:
             check_response(response)
             stickers.extend([OrderQRCode.parse_obj(sticker) for sticker in response.json()['stickers']])
         return stickers
+
 
     @retry_on_network_error
     def send_supply_to_deliver(self, supply_id: str) -> bool:
