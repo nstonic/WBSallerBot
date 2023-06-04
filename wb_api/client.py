@@ -4,11 +4,12 @@ import more_itertools
 import requests
 
 from .classes import Supply, Order, Product, OrderQRCode, SupplyQRCode
-from .errors import check_response, retry_on_network_error, WBAPIError
+from .errors import check_response, retry_on_network_error
 
 
 class WBApiClient:
     instance = None
+    is_initialized = False
 
     def __new__(cls, *args, **kwargs):
         if not cls.instance:
@@ -16,8 +17,9 @@ class WBApiClient:
         return cls.instance
 
     def __init__(self, **kwargs):
-        if kwargs:
+        if not self.is_initialized:
             self._headers = {'Authorization': kwargs['token']}
+            self.__class__.is_initialized = True
 
     @retry_on_network_error
     def get_supply_orders(self, supply_id: str) -> list[Order]:
