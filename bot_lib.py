@@ -21,10 +21,25 @@ def answer_to_user(
         text: str,
         keyboard: list[list[InlineKeyboardButton]] = None,
         add_main_menu_button: bool = True,
-        parse_mode: str = 'HTML'
+        parse_mode: str = 'HTML',
+        edit_current_message: bool = False
 ):
     if add_main_menu_button:
         keyboard.append([_MAIN_MENU_BUTTON])
+
+    if edit_current_message:
+        try:
+            message = context.bot.edit_message_text(
+                chat_id=update.effective_chat.id,
+                message_id=update.effective_message.message_id,
+                text=text,
+                reply_markup=InlineKeyboardMarkup(keyboard),
+                parse_mode=parse_mode
+            )
+        except TelegramError:
+            pass
+        else:
+            return message
 
     with suppress(TelegramError):
         context.bot.delete_message(
@@ -94,7 +109,8 @@ def show_supplies(
         context,
         text,
         keyboard,
-        add_main_menu_button=add_main_menu_button
+        add_main_menu_button=add_main_menu_button,
+        edit_current_message=True
     )
     return 'HANDLE_SUPPLIES_MENU'
 
@@ -136,7 +152,8 @@ def show_new_orders(
         context,
         text,
         keyboard,
-        add_main_menu_button=add_main_menu_button
+        add_main_menu_button=add_main_menu_button,
+        edit_current_message=True
     )
     return 'HANDLE_NEW_ORDERS'
 
@@ -198,7 +215,12 @@ def edit_supply(
     orders = wb_api_client.get_supply_orders(supply_id)
     if orders:
         sorted_orders = sorted(orders, key=lambda o: o.created_at)
-        qr_codes = wb_api_client.get_qr_codes_for_orders([order.id for order in sorted_orders])
+        if context.user_data.get('supply_edit') == supply_id:
+            qr_codes = context.user_data.get('qr_codes')
+        else:
+            qr_codes = wb_api_client.get_qr_codes_for_orders([order.id for order in sorted_orders])
+            context.user_data['supply_edit'] = supply_id
+            context.user_data['qr_codes'] = qr_codes
         paginator_items = []
         for order in sorted_orders:
             qr_code = next(filter(
@@ -232,7 +254,8 @@ def edit_supply(
         context,
         text,
         keyboard,
-        add_main_menu_button=add_main_menu_button
+        add_main_menu_button=add_main_menu_button,
+        edit_current_message=True
     )
     return 'HANDLE_EDIT_SUPPLY'
 
