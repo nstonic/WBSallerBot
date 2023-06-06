@@ -461,7 +461,8 @@ def close_supply(update: Update, context: CallbackContext, supply_id: str):
             update.callback_query.id,
             'Отправлено в доставку'
         )
-        return send_supply_qr_code(update, context, supply_id)
+        send_supply_qr_code(update, context, supply_id)
+        return show_supplies(update, context)
 
 
 def send_supply_qr_code(update: Update, context: CallbackContext, supply_id: str):
@@ -472,7 +473,6 @@ def send_supply_qr_code(update: Update, context: CallbackContext, supply_id: str
         chat_id=update.effective_chat.id,
         photo=supply_sticker
     )
-    return show_supplies(update, context)
 
 
 def get_confirmation_to_close_supply(update: Update, context: CallbackContext, supply_id: str):
