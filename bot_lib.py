@@ -218,6 +218,10 @@ def edit_supply(
         if context.user_data.get('supply_edit') == supply_id:
             qr_codes = context.user_data.get('qr_codes')
         else:
+            context.bot.answer_callback_query(
+                update.callback_query.id,
+                'Загружаются данные по заказам. Подождите'
+            )
             qr_codes = wb_api_client.get_qr_codes_for_orders([order.id for order in sorted_orders])
             context.user_data['supply_edit'] = supply_id
             context.user_data['qr_codes'] = qr_codes
