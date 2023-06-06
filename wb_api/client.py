@@ -16,9 +16,9 @@ class WBApiClient:
             cls.instance = super().__new__(cls)
         return cls.instance
 
-    def __init__(self, **kwargs):
+    def __init__(self, token=None):
         if not self.is_initialized:
-            self._headers = {'Authorization': kwargs['token']}
+            self._headers = {'Authorization': token}
             self.__class__.is_initialized = True
 
     @retry_on_network_error
