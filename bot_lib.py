@@ -227,16 +227,17 @@ def edit_supply(
             context.user_data['qr_codes'] = qr_codes
         paginator_items = []
         for order in sorted_orders:
-            qr_code = next(filter(
-                lambda qr: qr.order_id == order.id,
-                qr_codes
-            ))
-            paginator_items.append(
-                PaginatorItem(
-                    callback_data=str(order.id),
-                    button_text=f'{order.article} | {qr_code.part_a} {qr_code.part_b}'
+            with suppress(StopIteration):
+                qr_code = next(filter(
+                    lambda qr: qr.order_id == order.id,
+                    qr_codes
+                ))
+                paginator_items.append(
+                    PaginatorItem(
+                        callback_data=str(order.id),
+                        button_text=f'{order.article} | {qr_code.part_a} {qr_code.part_b}'
+                    )
                 )
-            )
 
         paginator = Paginator(paginator_items, page_size)
         paginator_keyboard = paginator.get_keyboard(
