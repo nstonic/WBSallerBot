@@ -213,9 +213,10 @@ def edit_supply(
     keyboard = [[InlineKeyboardButton('Вернуться к поставке', callback_data=f'supply_{supply_id}')]]
 
     orders = wb_api_client.get_supply_orders(supply_id)
+    order_ids = {order.id for order in orders}
     if orders:
         sorted_orders = sorted(orders, key=lambda o: o.created_at)
-        if context.user_data.get('supply_edit') == supply_id:
+        if context.user_data.get('order_ids') == order_ids:
             qr_codes = context.user_data.get('qr_codes')
         else:
             context.bot.answer_callback_query(
@@ -223,7 +224,7 @@ def edit_supply(
                 'Загружаются данные по заказам. Подождите'
             )
             qr_codes = wb_api_client.get_qr_codes_for_orders([order.id for order in sorted_orders])
-            context.user_data['supply_edit'] = supply_id
+            context.user_data['order_ids'] = order_ids
             context.user_data['qr_codes'] = qr_codes
         paginator_items = []
         for order in sorted_orders:
