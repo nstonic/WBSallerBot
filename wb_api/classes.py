@@ -38,8 +38,8 @@ class SupplyQRCode(BaseModel):
 @dataclass
 class Product:
     article: str
-    name: str = None
-    barcode: str = None
+    name: str = ''
+    barcode: str = ''
     media_urls: list[str] = None
     media_files: list[bytes] = None
 
@@ -54,10 +54,10 @@ class Product:
         article = product_card.get('vendorCode', '0000000000')
         media_files = product_card.get('mediaFiles')
         return Product(
-            article=article,
-            name=name,
-            barcode=barcode,
-            media_files=media_files
+            article=article or '',
+            name=name or '',
+            barcode=barcode or '',
+            media_files=media_files or ''
         )
 
     @retry_on_network_error
