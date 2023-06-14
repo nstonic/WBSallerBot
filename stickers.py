@@ -2,7 +2,6 @@ import os
 import pathlib
 from base64 import b64decode
 from io import BytesIO
-from pprint import pprint
 from zipfile import ZipFile, ZIP_DEFLATED
 
 from PIL import Image as PILImage
@@ -100,12 +99,16 @@ def create_stickers_by_article(
 
     elements = []
     for qr_code in order_qr_code_files:
+        colors = ', '.join(product.colors)
+        countries = ', '.join(product.countries)
         data = [
             [Paragraph(product.name, style)],
             [Paragraph(f'Артикул: {product.article}', style)],
-            [Paragraph(f'Страна: {config.COUNTRY}', style)],
-            [Paragraph(f'Бренд: {config.BRAND}', style)]
+            [Paragraph(f'Страна: {countries}', style)],
+            [Paragraph(f'Бренд: {product.brand}', style)],
         ]
+        if colors:
+            data.append([Paragraph(f'Цвет: {colors}', style)])
 
         elements.append(Image(qr_code, useDPI=300, width=95 * mm, height=65 * mm))
         elements.append(NextPageTemplate('Barcode'))

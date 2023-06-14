@@ -1,5 +1,6 @@
 import datetime
 from dataclasses import dataclass
+from pprint import pprint
 
 import requests
 from pydantic import BaseModel, Field
@@ -40,24 +41,29 @@ class Product:
     article: str
     name: str = ''
     barcode: str = ''
-    media_urls: list[str] = None
-    media_files: list[bytes] = None
+    brand: str = ''
+    countries: list[str] = tuple()
+    colors: list[str] = tuple()
+    media_urls: list[str] = tuple()
+    media_files: list[bytes] = tuple()
 
     @staticmethod
     def parse_from_card(product_card: dict):
-        for characteristic in product_card.get('characteristics'):
-            if name := characteristic.get('Наименование'):
-                break
-        else:
-            name = 'Наименование продукции'
-        barcode = product_card['sizes'][0]['skus'][0]
-        article = product_card.get('vendorCode', '0000000000')
-        media_files = product_card.get('mediaFiles')
+        characteristics = {
+            key: value
+            for characteristic in product_card.get('characteristics')
+            for key, value in characteristic.items()
+        }
+        size, *_ = product_card.get('sizes')
+        barcode, *_ = size.get('skus', '')
         return Product(
-            article=article or '',
-            name=name or '',
-            barcode=barcode or '',
-            media_files=media_files or ''
+            article=product_card.get('vendorCode', ''),
+            name=characteristics.get('Наименование', ''),
+            brand=characteristics.get('Бренд', ''),
+            barcode=barcode,
+            colors=characteristics.get('Цвет', []),
+            countries=characteristics.get('Страна производства', []),
+            media_files=product_card.get('mediaFiles', [])
         )
 
     @retry_on_network_error
