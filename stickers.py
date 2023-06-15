@@ -94,8 +94,10 @@ def create_stickers_by_article(
     sticker_size = (120 * mm, 75 * mm)
     style = getSampleStyleSheet()['BodyText']
     style.fontName = config.FONT_NAME
+    style.fontSize = 9.5
+    style.leading = 10
     frame_sticker = Frame(0, 0, *sticker_size)
-    frame_description = Frame(10 * mm, 5 * mm, 100 * mm, 40 * mm)
+    frame_description = Frame(10 * mm, 5 * mm, 100 * mm, 40 * mm, topPadding=0)
 
     elements = []
     for qr_code in order_qr_code_files:
