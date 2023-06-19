@@ -226,6 +226,7 @@ def edit_supply(
             qr_codes = wb_api_client.get_qr_codes_for_orders([order.id for order in sorted_orders])
             context.user_data['order_ids'] = order_ids
             context.user_data['qr_codes'] = qr_codes
+            context.user_data['current_supply'] = supply_id
         paginator_items = []
         for order in sorted_orders:
             with suppress(StopIteration):
@@ -402,7 +403,8 @@ def add_order_to_supply(update: Update, context: CallbackContext):
             update.callback_query.id,
             f'Заказ {order_id} добавлен к поставке {supply_id}'
         )
-    return show_supply(update, context, supply_id)
+    next_supply_id = context.user_data.get('current_supply', supply_id)
+    return show_supply(update, context, next_supply_id)
 
 
 def ask_for_supply_name(update: Update, context: CallbackContext):
@@ -486,6 +488,7 @@ def get_confirmation_to_close_supply(update: Update, context: CallbackContext, s
         update,
         context,
         text,
-        keyboard
+        keyboard,
+        add_main_menu_button=False
     )
     return 'HANDLE_CONFIRMATION_TO_CLOSE_SUPPLY'
