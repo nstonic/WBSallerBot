@@ -24,6 +24,9 @@ def answer_to_user(
         parse_mode: str = 'HTML',
         edit_current_message: bool = False
 ):
+    if not keyboard:
+        keyboard = []
+
     if add_main_menu_button:
         keyboard.append([_MAIN_MENU_BUTTON])
 
